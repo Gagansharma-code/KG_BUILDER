@@ -186,4 +186,5 @@ pytest tests/unit/ -v
 
 ## License
 
-DRDO Internal Use
+Open source
+
