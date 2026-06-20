@@ -120,6 +120,11 @@ class Config(BaseSettings):
         description="Python logging level (DEBUG, INFO, WARNING, ERROR)",
     )
 
+    kicad_mcp_url: str = Field(
+        default="http://localhost:3000",
+        description="KiCad MCP server base URL",
+    )
+
     @field_validator("model_paths", mode="before")
     @classmethod
     def _resolve_model_paths(cls, v: Any) -> dict[str, Path]:
@@ -221,6 +226,7 @@ class Config(BaseSettings):
             "log_level": "log_level",
             "supplier_cache_path": "supplier_cache_path",
             "canonical_functions_path": "canonical_functions_path",
+            "kicad_mcp_url": "kicad_mcp_url",
         }
 
         for yaml_key, field_name in field_mapping.items():
