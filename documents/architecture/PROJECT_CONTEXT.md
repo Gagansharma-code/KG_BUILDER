@@ -13,7 +13,7 @@
 | **Last updated** | 2026-06-26 |
 | **Updated by** | Stage 05 search/storage/deployment implementation |
 | **Current milestone** | Teams A–E gates implemented; **Stage 2 smoke-tested**; **Stage 3 retrieval + Stage 05 search/storage layer complete**; full E2E orchestrator + GPU eval deferred |
-| **Active work** | KB Tier 0 KiCad library ingestion complete; Tier 3 community pipeline deferred |
+| **Active work** | KB Tier 0 KiCad library ingestion complete; Tier 3 community pipeline deferred; Search controller: ASHA + SA polisher + beam search escalation complete |
 | **Repo root** | `open_forge/` (package: `openforge-pcb`) |
 | **Code root** | `src/` (canonical); legacy P1 prototype at `prototypes/p1-parser/` |
 | **Unit tests** | 699 passing (`pytest tests/unit -q`) — per commit 76b78d6 |
@@ -434,6 +434,10 @@ cd prototypes/p1-parser && python eval/phase1/run_eval.py
 
 | Date | Team/Phase | Summary |
 |------|------------|---------|
+| 2026-06-26 | Search Controller | Replaced LLM-guided MCTS escalation with width-3 beam search over programmatic repair moves. MCTS rejected after 8-point architectural debate (see MCTS_DECISION.md). Beam search uses same move types as SA polisher, maintains 3 parallel repair chains, max depth 4. No LLM inference consumed. |
+| 2026-06-27 | P6 / Polisher | Programmatic SA graph polisher: `polish_schematic()` in `src/schematic/sa_polisher.py` — violation-guided `NetlistEntry` mutations, Metropolis acceptance, `verify_schematic` rescoring. Zero LLM tokens. Gate: `tests/unit/schematic/test_sa_polisher.py`. Activated when ASHA `hand_off_to_sa` is True. |
+| 2026-06-27 | C / BOM | Multi-candidate BOM generation: `generate_bom_candidates()` and `BOMLadder` in `src/bom/candidates.py` (up to 3 ranked variants via alternative `specific_part` swap). Gate: `tests/unit/bom/test_bom_candidates.py`. Prerequisite for ASHA search controller (Prompt 5). |
+| 2026-06-27 | P2 / Verifier | Structural verifier Layers 4-5 complete: VF2 topology signatures (`TOPOLOGY_TEMPLATES`, `expected_topologies` param) and power invariants (star ground, Kelvin sensing, AGND/DGND). Full 5-layer `verify_schematic()` ready for search controller. Gate: `tests/unit/schematic/test_structural_verifier.py`. |
 | 2026-06-27 | P2 / Verifier | Structural verifier Layers 1-3: continuous scoring via `verify_schematic()` in `src/schematic/structural_verifier.py` (ERC wrap, pin-role compatibility, subcategory templates). Gate: `tests/unit/schematic/test_structural_verifier.py`. Layers 4-5 deferred to Prompt 3. |
 | 2026-06-27 | P2 / Schema | Added `PinRole` enum, `CANONICAL_TO_ROLE` mapping, and additive `pin_role` field on `PinDefinition`; wired through pin normalizer and P1 importer. Gate: `tests/unit/schemas/test_pin_role.py`. Prerequisite for 5-layer structural verifier. |
 | 2026-06-26 | KB / Tier 0 | Implemented KiCad s-expression parser (symbol_parser, footprint_parser, map_generator, batch_runner); auto-populates KICAD_SYMBOL_MAP and KICAD_FOOTPRINT_MAP from official KiCad repos; resolve_kicad_symbol() and resolve_kicad_footprint() now check generated JSON maps before hardcoded fallbacks |

@@ -7,9 +7,10 @@ justifications, and confidence scores.
 Public API:
     generate_bom(subgraph, intent, config) -> ValidatedBOM
     validate_bom(bom, config) -> ValidatedBOM
+    generate_bom_candidates(subgraph, intent, config) -> BOMLadder
 
 Example:
-    >>> from src.bom import generate_bom, validate_bom
+    >>> from src.bom import generate_bom, validate_bom, generate_bom_candidates
     >>> from src.schemas.intent import IntentDict
     >>> from src.schemas.kg import DesignSubgraph
     >>>
@@ -21,7 +22,8 @@ Example:
 
 from __future__ import annotations
 
+from src.bom.candidates import BOMLadder, generate_bom_candidates
 from src.bom.generator import generate_bom
 from src.bom.validator import validate_bom
 
-__all__ = ["generate_bom", "validate_bom"]
+__all__ = ["generate_bom", "validate_bom", "generate_bom_candidates", "BOMLadder"]
