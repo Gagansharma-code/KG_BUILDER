@@ -10,10 +10,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Last updated** | 2026-06-22 |
+| **Last updated** | 2026-06-26 |
 | **Updated by** | Stage 05 search/storage/deployment implementation |
 | **Current milestone** | Teams A–E gates implemented; **Stage 2 smoke-tested**; **Stage 3 retrieval + Stage 05 search/storage layer complete**; full E2E orchestrator + GPU eval deferred |
-| **Active work** | E2E orchestrator wiring; embedding ingestion pipeline; GPU lab VLM eval |
+| **Active work** | KB Tier 0 KiCad library ingestion complete; Tier 3 community pipeline deferred |
 | **Repo root** | `open_forge/` (package: `openforge-pcb`) |
 | **Code root** | `src/` (canonical); legacy P1 prototype at `prototypes/p1-parser/` |
 | **Unit tests** | 699 passing (`pytest tests/unit -q`) — per commit 76b78d6 |
@@ -434,6 +434,7 @@ cd prototypes/p1-parser && python eval/phase1/run_eval.py
 
 | Date | Team/Phase | Summary |
 |------|------------|---------|
+| 2026-06-26 | KB / Tier 0 | Implemented KiCad s-expression parser (symbol_parser, footprint_parser, map_generator, batch_runner); auto-populates KICAD_SYMBOL_MAP and KICAD_FOOTPRINT_MAP from official KiCad repos; resolve_kicad_symbol() and resolve_kicad_footprint() now check generated JSON maps before hardcoded fallbacks |
 | 2026-06-22 | C / Stage 05 | Search/storage/deployment layer implemented per `documents/guides/stage_5_Search_storage.md`: pgvector `VECTOR(4096)`, synonym expansion (`query_expander.py`, `synonyms.yaml`), Layer 1 coverage reporting, Qwen3 query-prefix vector search, `RRF_K=60`, model pinning (`config/model_versions.yaml`), vLLM config, deployment docs. Gate: `pytest tests/retrieval tests/db` 36/36 PASS. |
 | 2026-06-21 | C | Stage 2 requirement completion engine smoke-tested against Entry 001 (Libbrecht-Hall). `operating_environment` and `supply_voltage` dangerous assumptions correctly escalated to blocking ambiguities; `clarification_required=True`. `tests/completion/smoke_test_real_prompts.py` 12/12 PASS. Logged in `SCIENTIFIC_PROMPT_ANALYSIS_LOG.md` Entry 003. |
 | 2026-06-20 | E, F | Team E output pipeline complete (KiCad + tscircuit serializers, doc generator). Docker air-gap image added. 699 unit tests. Team E gate 10/10. |
