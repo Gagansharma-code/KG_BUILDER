@@ -37,7 +37,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from src.schemas.datasheet import ExtractionMethod
+from src.schemas.datasheet import EXTRACTION_METHOD_CONFIDENCE, ExtractionMethod
 
 
 class KGNodeType(str, Enum):
@@ -80,17 +80,6 @@ class KGRelation(str, Enum):
     REPLACES = "replaces"  # Substitution relationship
     INCOMPATIBLE_WITH = "incompatible_with"  # Cannot be used together
     OVERRIDES = "overrides"  # Rule/method supersedes another
-
-
-# BS-4 fix: confidence assignment rules per extraction method
-# Maps extraction method to base confidence score for KG edges/nodes
-EXTRACTION_METHOD_CONFIDENCE: dict[str, float] = {
-    ExtractionMethod.MANUAL: 1.0,
-    ExtractionMethod.P1_VECTOR: 0.97,
-    ExtractionMethod.P1_VLM: 0.85,
-    ExtractionMethod.P1_PHASE5_NLP: 0.80,
-    ExtractionMethod.LLM_FALLBACK: 0.72,
-}
 
 
 class KGNode(BaseModel):

@@ -6,6 +6,8 @@ and ingestion results.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 from src.schemas.datasheet import ExtractionMethod
@@ -79,6 +81,24 @@ class IngestionResult(BaseModel):
 
     source_document: str = Field(
         description="The document that was processed",
+    )
+    content_hash: Optional[str] = Field(
+        default=None,
+        description="SHA-256 hash of the source document for deduplication",
+    )
+    document_type: Optional[str] = Field(
+        default=None,
+        description="DocumentType enum value as string (e.g., 'app_note', 'research_paper')",
+    )
+    ingestion_tier: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=3,
+        description="Which parser tier processed this document (0=structured, 1=heavy, 2=medium, 3=light)",
+    )
+    source_url: Optional[str] = Field(
+        default=None,
+        description="Original URL or file path of the source document",
     )
     triples_extracted: int = Field(
         default=0,

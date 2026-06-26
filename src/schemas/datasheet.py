@@ -50,6 +50,26 @@ class ExtractionMethod(str, Enum):
     P1_PHASE5_NLP = "p1_phase5_nlp"  # layout section NLP extraction
     MANUAL = "manual"
     LLM_FALLBACK = "llm_fallback"
+    NOUGAT = "nougat"                        # equation/text extraction from academic PDFs
+    HTML_PARSE = "html_parse"                # HTML stripping for community content
+    SEXPRESSION_PARSE = "sexpression_parse"  # KiCad .kicad_sym / .kicad_mod parser
+    PDF_TEXT_EXTRACT = "pdf_text_extract"    # pdfplumber direct text extraction (Tier 2)
+    KICAD_LIBRARY = "kicad_library"          # KiCad official library ingestion
+
+
+# Maps extraction method to base confidence score for KG edges/nodes
+EXTRACTION_METHOD_CONFIDENCE: dict[ExtractionMethod, float] = {
+    ExtractionMethod.MANUAL: 1.0,
+    ExtractionMethod.P1_VECTOR: 0.97,
+    ExtractionMethod.P1_VLM: 0.85,
+    ExtractionMethod.P1_PHASE5_NLP: 0.80,
+    ExtractionMethod.LLM_FALLBACK: 0.72,
+    ExtractionMethod.NOUGAT: 0.88,
+    ExtractionMethod.HTML_PARSE: 0.90,
+    ExtractionMethod.SEXPRESSION_PARSE: 0.99,
+    ExtractionMethod.PDF_TEXT_EXTRACT: 0.82,
+    ExtractionMethod.KICAD_LIBRARY: 0.99,
+}
 
 
 class ExtractedValue(BaseModel):
@@ -394,6 +414,7 @@ class ComponentDatasheet(BaseModel):
 __all__ = [
     "TableSectionType",
     "ExtractionMethod",
+    "EXTRACTION_METHOD_CONFIDENCE",
     "ExtractedValue",
     "ElectricalParameter",
     "AbsoluteMaxRating",

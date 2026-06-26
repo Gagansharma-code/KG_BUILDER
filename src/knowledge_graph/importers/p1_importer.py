@@ -104,13 +104,15 @@ def _create_pin_nodes(
         properties: dict[str, Any] = {
             "pin_number": pin.pin_number,
             "raw_name": pin.raw_name,
-            "pin_type": pin.pin_type,
             "alternate_functions": pin.alternate_functions or [],
         }
 
         # Only add normalized_function if present
         if pin.normalized_function is not None:
             properties["normalized_function"] = pin.normalized_function
+
+        if pin.pin_type is not None:
+            properties["pin_type"] = pin.pin_type
 
         if pin.description:
             properties["description"] = pin.description
@@ -154,10 +156,12 @@ def _create_electrical_property_nodes(
 
         # Build properties from ExtractedValue
         properties: dict[str, Any] = {
-            "symbol": param.symbol,
-            "conditions": param.conditions,
             "section_type": section,
         }
+        if param.symbol is not None:
+            properties["symbol"] = param.symbol
+        if param.conditions is not None:
+            properties["conditions"] = param.conditions
 
         if param.value:
             if param.value.min_val is not None:
