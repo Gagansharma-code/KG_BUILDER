@@ -23,3 +23,55 @@ app_notes:
       - "power_management"
       - "gate_driver"
     manufacturer: "ADI"
+
+# KB population run manifest (guided_app_notes) — used by app_note_fetcher.py
+guided_app_notes:
+  - document_number: SLVA477B
+    manufacturer: TI
+    topology: ldo
+    url: https://www.ti.com/lit/an/slva477b/slva477b.pdf
+
+  - document_number: SNVA786
+    manufacturer: TI
+    topology: buck_converter
+    url: https://www.ti.com/lit/an/snva786/snva786.pdf
+
+  - document_number: SBOA327
+    manufacturer: TI
+    topology: current_source
+    url: https://www.ti.com/lit/an/sboa327/sboa327.pdf
+
+  - document_number: SBOA273
+    manufacturer: TI
+    topology: current_source
+    url: https://www.ti.com/lit/an/sboa273/sboa273.pdf
+
+  - document_number: SLYT583
+    manufacturer: TI
+    topology: adc_layout
+    url: https://www.ti.com/lit/an/slyt583/slyt583.pdf
+
+  - document_number: SLOA114
+    manufacturer: TI
+    topology: decoupling
+    url: https://www.ti.com/lit/an/sloa114/sloa114.pdf
+
+  - document_number: SLOA049
+    manufacturer: TI
+    topology: opamp_stability
+    url: https://www.ti.com/lit/an/sloa049d/sloa049d.pdf
+
+  - document_number: SLLA270
+    manufacturer: TI
+    topology: can_bus
+    url: https://www.ti.com/lit/an/slla270/slla270.pdf
+
+  - document_number: AN-1321
+    manufacturer: ADI
+    topology: instrumentation_amplifier
+    url: https://www.analog.com/media/en/technical-documentation/application-notes/an-1321.pdf
+
+  - document_number: MT-031
+    manufacturer: ADI
+    topology: adc_layout
+    url: https://www.analog.com/media/en/training-seminars/tutorials/MT-031.pdf
