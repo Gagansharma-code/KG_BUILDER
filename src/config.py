@@ -16,6 +16,8 @@ import yaml
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.parsing.backends._schemas import ParsingConfig
+
 
 class Config(BaseSettings):
     """Root configuration class for OpenForge PCB Builder.
@@ -125,6 +127,11 @@ class Config(BaseSettings):
         description="KiCad MCP server base URL",
     )
 
+    parsing: ParsingConfig = Field(
+        default_factory=ParsingConfig,
+        description="Pluggable parsing backend name selections",
+    )
+
     @field_validator("model_paths", mode="before")
     @classmethod
     def _resolve_model_paths(cls, v: Any) -> dict[str, Path]:
@@ -227,6 +234,7 @@ class Config(BaseSettings):
             "supplier_cache_path": "supplier_cache_path",
             "canonical_functions_path": "canonical_functions_path",
             "kicad_mcp_url": "kicad_mcp_url",
+            "parsing": "parsing",
         }
 
         for yaml_key, field_name in field_mapping.items():

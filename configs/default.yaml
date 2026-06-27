@@ -52,3 +52,25 @@ layout:
   default_board_thickness: 1.6  # mm
   max_layer_count: 12
   preferred_layers: 4
+
+# Pluggable parsing backend selections
+parsing:
+  layout_detector: "yolov8"
+  vector_table: "pdfplumber_camelot"
+  image_table: "paddleocr"
+  vlm: "qwen2_vl"
+  llm: "qwen25_7b"
+  layout_detector_config:
+    confidence_min: 0.55
+  vector_table_config:
+    flavor: "lattice"
+  image_table_config:
+    lang: "en"
+    use_gpu: false
+  qwen2_vl_config:
+    model_key: "qwen2_vl_7b"
+  llm_config:
+    model_key: "qwen25_7b"
+    device: "cpu"
+    max_tokens: 1024
+  phase2_vector_confidence_min: 0.80
