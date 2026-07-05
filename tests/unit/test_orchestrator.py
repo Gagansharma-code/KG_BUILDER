@@ -11,6 +11,7 @@ import pytest
 from src.config import Config
 from src.datasheet.pipeline import DatasheetPipelineError
 from src.knowledge_graph.graph import KnowledgeGraph
+from src.layout._schemas import LayoutSpec
 from src.output import OutputResult
 from src.schemas.datasheet import ComponentDatasheet, ExtractionMethod
 from src.schemas.intent import (
@@ -21,6 +22,7 @@ from src.schemas.intent import (
 )
 from src.schemas.kg import DesignSubgraph
 from src.schemas.nir import BoardSpec, NIR
+from src.schematic._schemas import ERCResult, SchematicGraph
 
 
 PROMPT = "Design a 3.3V buck regulator for battery input"
@@ -106,6 +108,43 @@ def _mock_nir(design_id: str = "d1") -> NIR:
     )
 
 
+def _mock_schematic() -> SchematicGraph:
+    return SchematicGraph(
+        netlist=[],
+        blocks=[],
+        erc_result=ERCResult(passed=True, violations=[], rules_checked=1),
+        synthesis_confidence=0.95,
+        unresolved_pins=[],
+        review_flags=[],
+    )
+
+
+def _mock_layout() -> LayoutSpec:
+    return LayoutSpec(
+        placement_constraints=[],
+        component_groups=[],
+        routing_hints=[],
+        board_spec=BoardSpec(
+            layers=2,
+            material="FR4",
+            thickness_mm=1.6,
+            min_trace_width_mm=0.15,
+            min_clearance_mm=0.15,
+        ),
+    )
+
+
+def _configure_team_d_mocks(
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
+    nir: NIR,
+) -> None:
+    mock_schematic.return_value = _mock_schematic()
+    mock_layout.return_value = _mock_layout()
+    mock_build_nir.return_value = nir
+
+
 @pytest.fixture
 def config() -> Config:
     return Config()
@@ -148,7 +187,9 @@ def _happy_path_mocks(
 
 
 @patch("src.orchestrator.run_output_pipeline")
-@patch("src.orchestrator.run_synthesis_pipeline")
+@patch("src.orchestrator.build_nir")
+@patch("src.orchestrator.generate_layout_spec")
+@patch("src.orchestrator.synthesize_schematic")
 @patch("src.orchestrator.normalize_pins")
 @patch("src.orchestrator.parse_datasheet")
 @patch("src.orchestrator._resolve_pdf")
@@ -160,7 +201,9 @@ def test_happy_path_all_pdfs_found(
     mock_resolve_pdf,
     mock_parse_datasheet,
     mock_normalize_pins,
-    mock_synthesis_pipeline,
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
     mock_output_pipeline,
     config: Config,
     mock_graph: KnowledgeGraph,
@@ -172,7 +215,7 @@ def test_happy_path_all_pdfs_found(
     mock_resolve_pdf.return_value = Path("corpus/datasheets/TPS62933.pdf")
     mock_parse_datasheet.return_value = datasheet
     mock_normalize_pins.return_value = [datasheet]
-    mock_synthesis_pipeline.return_value = nir
+    _configure_team_d_mocks(mock_schematic, mock_layout, mock_build_nir, nir)
     mock_output_pipeline.return_value = output
 
     from src.orchestrator import run_e2e
@@ -185,7 +228,9 @@ def test_happy_path_all_pdfs_found(
 
 
 @patch("src.orchestrator.run_output_pipeline")
-@patch("src.orchestrator.run_synthesis_pipeline")
+@patch("src.orchestrator.build_nir")
+@patch("src.orchestrator.generate_layout_spec")
+@patch("src.orchestrator.synthesize_schematic")
 @patch("src.orchestrator.normalize_pins")
 @patch("src.orchestrator.parse_datasheet")
 @patch("src.orchestrator._resolve_pdf")
@@ -197,7 +242,9 @@ def test_pdf_not_found_uses_skeleton(
     mock_resolve_pdf,
     mock_parse_datasheet,
     mock_normalize_pins,
-    mock_synthesis_pipeline,
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
     mock_output_pipeline,
     config: Config,
     mock_graph: KnowledgeGraph,
@@ -208,7 +255,7 @@ def test_pdf_not_found_uses_skeleton(
     mock_query_graph.return_value = subgraph
     mock_resolve_pdf.return_value = None
     mock_normalize_pins.side_effect = lambda datasheets, _config: datasheets
-    mock_synthesis_pipeline.return_value = nir
+    _configure_team_d_mocks(mock_schematic, mock_layout, mock_build_nir, nir)
     mock_output_pipeline.return_value = output
 
     from src.orchestrator import run_e2e
@@ -222,7 +269,9 @@ def test_pdf_not_found_uses_skeleton(
 
 
 @patch("src.orchestrator.run_output_pipeline")
-@patch("src.orchestrator.run_synthesis_pipeline")
+@patch("src.orchestrator.build_nir")
+@patch("src.orchestrator.generate_layout_spec")
+@patch("src.orchestrator.synthesize_schematic")
 @patch("src.orchestrator.normalize_pins")
 @patch("src.orchestrator.parse_datasheet")
 @patch("src.orchestrator._resolve_pdf")
@@ -234,7 +283,9 @@ def test_parse_datasheet_error_uses_skeleton(
     mock_resolve_pdf,
     mock_parse_datasheet,
     mock_normalize_pins,
-    mock_synthesis_pipeline,
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
     mock_output_pipeline,
     config: Config,
     mock_graph: KnowledgeGraph,
@@ -250,7 +301,7 @@ def test_parse_datasheet_error_uses_skeleton(
         RuntimeError("x"),
     )
     mock_normalize_pins.side_effect = lambda datasheets, _config: datasheets
-    mock_synthesis_pipeline.return_value = nir
+    _configure_team_d_mocks(mock_schematic, mock_layout, mock_build_nir, nir)
     mock_output_pipeline.return_value = output
 
     from src.orchestrator import run_e2e
@@ -262,47 +313,58 @@ def test_parse_datasheet_error_uses_skeleton(
 
 
 @patch("src.orchestrator.run_output_pipeline")
-@patch("src.orchestrator.run_synthesis_pipeline")
+@patch("src.orchestrator.build_nir")
+@patch("src.orchestrator.generate_layout_spec")
+@patch("src.orchestrator.synthesize_schematic")
 @patch("src.orchestrator.normalize_pins")
 @patch("src.orchestrator.parse_datasheet")
 @patch("src.orchestrator._resolve_pdf")
 @patch("src.orchestrator.query_graph")
 @patch("src.orchestrator.run_intent_pipeline")
-def test_review_required_bom_continues(
+def test_review_required_bom_blocks_at_gate(
     mock_intent_pipeline,
     mock_query_graph,
     mock_resolve_pdf,
     mock_parse_datasheet,
     mock_normalize_pins,
-    mock_synthesis_pipeline,
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
     mock_output_pipeline,
     config: Config,
     mock_graph: KnowledgeGraph,
     output_dir: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """review_required=True halts at the human-review gate: no downstream
+    stage runs (OPENFORGE_ARCHITECTURE.md §8 blocking behavior)."""
     bom, datasheet, nir, subgraph, output = _happy_path_mocks(
         mock_bom=_validated_bom(review_required=True),
     )
     mock_intent_pipeline.return_value = (bom.intent, bom, None)
-    mock_query_graph.return_value = subgraph
-    mock_resolve_pdf.return_value = Path("corpus/datasheets/TPS62933.pdf")
-    mock_parse_datasheet.return_value = datasheet
-    mock_normalize_pins.return_value = [datasheet]
-    mock_synthesis_pipeline.return_value = nir
-    mock_output_pipeline.return_value = output
 
     from src.orchestrator import run_e2e
 
-    with caplog.at_level("WARNING"):
+    with (
+        caplog.at_level("WARNING"),
+        patch("src.review.queue.get_bom_review_item", return_value=MagicMock()),
+    ):
         result = run_e2e(PROMPT, mock_graph, output_dir, config)
 
-    assert result.overall_success is True
-    assert any("review_required" in record.message for record in caplog.records)
+    mock_query_graph.assert_not_called()
+    mock_schematic.assert_not_called()
+    mock_layout.assert_not_called()
+    mock_build_nir.assert_not_called()
+    mock_output_pipeline.assert_not_called()
+    assert result.overall_success is False
+    assert result.status == "pending_review"
+    assert any("review" in record.message for record in caplog.records)
 
 
 @patch("src.orchestrator.run_output_pipeline")
-@patch("src.orchestrator.run_synthesis_pipeline")
+@patch("src.orchestrator.build_nir")
+@patch("src.orchestrator.generate_layout_spec")
+@patch("src.orchestrator.synthesize_schematic")
 @patch("src.orchestrator.normalize_pins")
 @patch("src.orchestrator.parse_datasheet")
 @patch("src.orchestrator._resolve_pdf")
@@ -314,7 +376,9 @@ def test_catastrophic_synthesis_failure(
     mock_resolve_pdf,
     mock_parse_datasheet,
     mock_normalize_pins,
-    mock_synthesis_pipeline,
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
     mock_output_pipeline,
     config: Config,
     mock_graph: KnowledgeGraph,
@@ -326,7 +390,7 @@ def test_catastrophic_synthesis_failure(
     mock_resolve_pdf.return_value = Path("corpus/datasheets/TPS62933.pdf")
     mock_parse_datasheet.return_value = datasheet
     mock_normalize_pins.return_value = [datasheet]
-    mock_synthesis_pipeline.side_effect = RuntimeError("synthesis exploded")
+    mock_schematic.side_effect = RuntimeError("synthesis exploded")
 
     from src.orchestrator import run_e2e
 
@@ -338,7 +402,9 @@ def test_catastrophic_synthesis_failure(
 
 
 @patch("src.orchestrator.run_output_pipeline")
-@patch("src.orchestrator.run_synthesis_pipeline")
+@patch("src.orchestrator.build_nir")
+@patch("src.orchestrator.generate_layout_spec")
+@patch("src.orchestrator.synthesize_schematic")
 @patch("src.orchestrator.normalize_pins")
 @patch("src.orchestrator.parse_datasheet")
 @patch("src.orchestrator._resolve_pdf")
@@ -350,7 +416,9 @@ def test_empty_bom_still_runs_pipeline(
     mock_resolve_pdf,
     mock_parse_datasheet,
     mock_normalize_pins,
-    mock_synthesis_pipeline,
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
     mock_output_pipeline,
     config: Config,
     mock_graph: KnowledgeGraph,
@@ -362,7 +430,7 @@ def test_empty_bom_still_runs_pipeline(
     mock_intent_pipeline.return_value = (bom.intent, bom, None)
     mock_query_graph.return_value = subgraph
     mock_normalize_pins.return_value = []
-    mock_synthesis_pipeline.return_value = nir
+    _configure_team_d_mocks(mock_schematic, mock_layout, mock_build_nir, nir)
     mock_output_pipeline.return_value = output
 
     from src.orchestrator import run_e2e
@@ -372,13 +440,17 @@ def test_empty_bom_still_runs_pipeline(
     assert result.datasheets_parsed == 0
     assert result.datasheets_skipped == 0
     mock_normalize_pins.assert_called_once_with([], config)
-    mock_synthesis_pipeline.assert_called_once()
+    mock_schematic.assert_called_once()
+    mock_layout.assert_called_once()
+    mock_build_nir.assert_called_once()
     mock_parse_datasheet.assert_not_called()
     mock_resolve_pdf.assert_not_called()
 
 
 @patch("src.orchestrator.run_output_pipeline")
-@patch("src.orchestrator.run_synthesis_pipeline")
+@patch("src.orchestrator.build_nir")
+@patch("src.orchestrator.generate_layout_spec")
+@patch("src.orchestrator.synthesize_schematic")
 @patch("src.orchestrator.normalize_pins")
 @patch("src.orchestrator.parse_datasheet")
 @patch("src.orchestrator._resolve_pdf")
@@ -390,7 +462,9 @@ def test_multiple_components_mixed_pdf_resolution(
     mock_resolve_pdf,
     mock_parse_datasheet,
     mock_normalize_pins,
-    mock_synthesis_pipeline,
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
     mock_output_pipeline,
     config: Config,
     mock_graph: KnowledgeGraph,
@@ -415,7 +489,7 @@ def test_multiple_components_mixed_pdf_resolution(
     mock_resolve_pdf.side_effect = resolve_pdf
     mock_parse_datasheet.return_value = parsed
     mock_normalize_pins.side_effect = lambda datasheets, _config: datasheets
-    mock_synthesis_pipeline.return_value = nir
+    _configure_team_d_mocks(mock_schematic, mock_layout, mock_build_nir, nir)
     mock_output_pipeline.return_value = output
 
     from src.orchestrator import run_e2e
@@ -427,7 +501,9 @@ def test_multiple_components_mixed_pdf_resolution(
 
 
 @patch("src.orchestrator.run_output_pipeline")
-@patch("src.orchestrator.run_synthesis_pipeline")
+@patch("src.orchestrator.build_nir")
+@patch("src.orchestrator.generate_layout_spec")
+@patch("src.orchestrator.synthesize_schematic")
 @patch("src.orchestrator.normalize_pins")
 @patch("src.orchestrator.parse_datasheet")
 @patch("src.orchestrator._resolve_pdf")
@@ -439,7 +515,9 @@ def test_e2e_result_fields_populated(
     mock_resolve_pdf,
     mock_parse_datasheet,
     mock_normalize_pins,
-    mock_synthesis_pipeline,
+    mock_schematic,
+    mock_layout,
+    mock_build_nir,
     mock_output_pipeline,
     config: Config,
     mock_graph: KnowledgeGraph,
@@ -451,7 +529,7 @@ def test_e2e_result_fields_populated(
     mock_resolve_pdf.return_value = Path("corpus/datasheets/TPS62933.pdf")
     mock_parse_datasheet.return_value = datasheet
     mock_normalize_pins.return_value = [datasheet]
-    mock_synthesis_pipeline.return_value = nir
+    _configure_team_d_mocks(mock_schematic, mock_layout, mock_build_nir, nir)
     mock_output_pipeline.return_value = output
 
     from src.orchestrator import run_e2e

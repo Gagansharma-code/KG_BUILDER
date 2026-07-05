@@ -1,8 +1,11 @@
 """Knowledge Graph package for Team B.
 
-Provides a NetworkX DiGraph wrapper for storing and querying the Neo4j-backed
-knowledge graph locally (prototype storage via GraphML), plus the primary
-query engine used by Team C.
+Provides a NetworkX DiGraph wrapper (GraphML-serialized) for storing and
+querying the knowledge graph, plus the primary query engine used by Team C.
+Storage is pluggable via src.knowledge_graph.backends.GraphBackendRegistry;
+NetworkX is the only backend registered today. A Neo4j backend is designed
+(see documents/architecture/NEO4J_BACKEND_DESIGN.md) but not implemented —
+no driver dependency, no registry entry.
 
 Public API:
     KnowledgeGraph: NetworkX DiGraph wrapper for KG nodes and edges

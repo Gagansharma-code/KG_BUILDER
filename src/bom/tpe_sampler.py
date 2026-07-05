@@ -8,6 +8,10 @@ This enables generate_bom_candidates() to produce meaningful variant BOMs
 once sufficient history exists (MIN_OBSERVATIONS_FOR_PREDICTION outcomes
 per component_type).
 
+STATUS (2026-07-06): implemented and gate-tested; not wired into
+run_intent_pipeline() or run_e2e() — see src/bom/candidates.py module
+docstring for the ASHA-controller dependency this awaits.
+
 Storage: data/bom_tpe_history.json (gitignored runtime file).
 No network calls. No Optuna dependency. Pure Python with JSON persistence.
 """

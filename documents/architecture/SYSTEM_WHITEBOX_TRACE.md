@@ -18,18 +18,41 @@ Engineer types: "design a 3.3V LDO regulator for an IoT sensor"
 [STAGE 1b — optional block] IntentDict.clarification_required == True
         │ → pipeline stops; empty ValidatedBOM returned (no queue enqueue)
         ▼
+[STAGE 1c] src/completion/__init__.py → run_completion_engine(intent, config)
+        │ Output: ImprovedIntentDict (Stage 2 requirement completion)
+        │ Failure: caught and logged, proceeds with Stage 1 output unchanged
+        ▼
+[STAGE 1d] src/retrieval/__init__.py → RetrievalEngine.run_retrieval(intent)
+        │ Output: Optional[RetrievalResult] (Stage 2.5 KB retrieval)
+        │ Skipped entirely if config.database_url is unset; never raises
+        ▼
+[STAGE 1e — HARD GATE] src/intent/interval_solver.py → assert_interval_feasible(intent)
+        │ Stage 2.75 — deductive feasibility pre-check, runs BEFORE query_graph
+        │ Raises ConstraintConflictError on infeasible constraints (e.g. dropout
+        │ chain, thermal budget). Caught by run_intent_pipeline(); halts with an
+        │ empty/flagged ValidatedBOM and calls enqueue_bom() — does not proceed
+        │ to Stage 2.
+        ▼
 [STAGE 2] src/knowledge_graph/query/__init__.py → query_graph(intent, graph, config)
         │ Output: DesignSubgraph
+        │ Runs AFTER Stages 1c/1d/1e — not immediately after Stage 1
         ▼
-[STAGE 3] src/bom/generator.py → generate_bom(subgraph, intent, config)
+[STAGE 3] src/bom/generator.py → generate_bom(subgraph, intent, config, retrieval_result=...)
         │ Output: ValidatedBOM (pre-validation)
         ▼
 [STAGE 4] src/bom/validator.py → validate_bom(bom, config)
         │ Output: ValidatedBOM (cross-component checks applied)
         ▼
-[STAGE 4b — REVIEW GATE] src/review/queue.py → enqueue_bom(validated_bom, config)
+[STAGE 4a] src/knowledge_graph/constraints/__init__.py → persist_design_constraints(intent, bom.design_id, graph)
+        │ Writes DESIGN_CONSTRAINT nodes (layer 5) scoped to design_id — persisted
+        │ provenance, never discarded, versioned against KG state at creation
+        ▼
+[STAGE 4b — REVIEW GATE, BLOCKING] src/review/queue.py → enqueue_bom(validated_bom, config)
         │ Fires when: ValidatedBOM.review_required == True
-        │ Stage tag: "bom_generation"
+        │ Stage tag: "bom_generation"; stores full ValidatedBOM JSON snapshot
+        │ src/orchestrator.py → run_e2e() HALTS HERE (status="pending_review")
+        │ Resume only via src/orchestrator.py → resume_after_review(design_id, ...)
+        │ after human approval — see SECTION 5, Gate 2
         ▼
 [STAGE 5] src/datasheet/pipeline.py → parse_datasheet(component_id, pdf_path, config)
         │   (called once per BOMEntry.specific_part; not inside Team C/D orchestrators)
@@ -85,10 +108,12 @@ Fabrication-ready files on disk under output_dir/
 
 | Orchestrator | File | Functions called |
 |---|---|---|
-| Intent → BOM | `src/intent/pipeline.py` | `parse_intent` → `query_graph` → `generate_bom` → `validate_bom` → [`enqueue_bom`] |
+| Intent → BOM | `src/intent/pipeline.py` | `parse_intent` → [`run_completion_engine`] → [`RetrievalEngine.run_retrieval`] → `assert_interval_feasible` (hard gate) → `query_graph` → `generate_bom` → `validate_bom` → `persist_design_constraints` → [`enqueue_bom`] |
 | Datasheet P1 | `src/datasheet/pipeline.py` | `phase1_dla.process` → `phase2_tsr.process` → `phase3_extract.process` → `phase4_validate.validate/apply_verdict` → [`phase5_layout.extract_layout_constraints`] → [`enqueue`] |
 | BOM → NIR | `src/synthesis/pipeline.py` | `synthesize_schematic` → `generate_layout_spec` → `build_nir` → [`enqueue_nir`] |
 | NIR → files | `src/output/__init__.py` | `serialize_to_tscircuit` ∥ `serialize_to_kicad` ∥ `generate_design_report` |
+| E2E entry point | `src/orchestrator.py` | `run_intent_pipeline` → [BLOCKS if `review_required`] → `query_graph` (re-query) → `parse_datasheet` (per component) → `normalize_pins` → `run_synthesis_pipeline` → `run_output_pipeline` |
+| Post-review resume | `src/orchestrator.py` | `resume_after_review(design_id, ...)` → deserializes persisted `ValidatedBOM` snapshot (never regenerates) → same post-BOM stages as `run_e2e` |
 
 ---
 
@@ -1207,14 +1232,15 @@ The pipeline has **four decision points** where automated execution pauses or fl
 
 ---
 
-### Gate 2 — BOM Generation Review
+### Gate 2 — BOM Generation Review (blocking, orchestrator-enforced)
 
 | Field | Value |
 |---|---|
-| **Trigger** | `ValidatedBOM.review_required == True` after `generate_bom()` |
+| **Trigger** | `ValidatedBOM.review_required == True` after `generate_bom()`, OR a Stage 2.75 `ConstraintConflictError` from `assert_interval_feasible()` |
 | **Thresholds** | `total_confidence < config.confidence_thresholds["bom_total"]` → **0.85**; any `BOMEntry.confidence < config.confidence_thresholds["bom_component"]` → **0.75**; any `specific_part is None` (`configs/default.yaml`) |
-| **Enqueue** | `enqueue_bom(validated_bom, config)` → stage `"bom_generation"` |
+| **Enqueue** | `enqueue_bom(validated_bom, config)` → stage `"bom_generation"`; stores the **full serialized `ValidatedBOM`** in the `bom_json` column of the same SQLite record (single source of truth, no separate snapshot file) |
 | **Additional flags** | `validate_bom()` appends strings to `review_flags` (voltage conflicts, supplier availability) |
+| **Blocking behavior** | `src/orchestrator.py` → `run_e2e()` halts here and returns `E2EResult(status="pending_review", overall_success=False)`. Synthesis, layout, and serialization do **not** run until approved. |
 
 **Reviewer CLI session:**
 
@@ -1244,7 +1270,28 @@ $ python -m src.review.cli correct 550e8400-e29b-41d4-a716-446655440000 --notes 
 Marked item 550e8400... as corrected (a1b2c3d4-e5f6-7890-abcd-ef1234567890)
 ```
 
-**After approval:** Pipeline proceeds to datasheet parsing and synthesis. Corrected items export via:
+**After approval:** Approve by `design_id` (not `item_id`):
+
+```
+$ python -m src.review.cli approve-design a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Approved design a1b2c3d4-... (item 550e8400...)
+Resume with: src.orchestrator.resume_after_review(design_id, ...)
+```
+
+Then continue the pipeline from Python:
+
+```python
+from src.orchestrator import resume_after_review
+result = resume_after_review(design_id, graph, output_dir, config)
+```
+
+`resume_after_review()` deserializes the **persisted `bom_json` snapshot**
+from the queue record — it does not regenerate the BOM, so the design that
+gets built is guaranteed to be exactly what the reviewer approved. A design
+that is still `pending` or was `rejected` returns without running any
+downstream stage (`status="pending_review"` or `status="rejected"`).
+
+Corrected items export via:
 
 ```
 $ python -m src.review.cli export --output data/corrections_export.jsonl
@@ -1329,10 +1376,19 @@ output/
 | **1** | `physics_concept` | Physics laws, thermal models |
 | **2** | `component_type` | Abstract categories: `ldo_regulator`, `input_capacitor` |
 | **3** | `component_instance` | Specific parts: `TPS7A20DRVR`, `GRM155R71C104KA88D` |
-| **4** | `design_recipe`, `placement_rule`, `routing_rule`, `electrical_property` | Design patterns, constraints, quantitative rules |
-| **5** | `design_methodology`, project nodes | Methodology definitions (`power_management`, `RF_highfreq`) |
+| **4** | `design_recipe`, `placement_rule`, `routing_rule`, `electrical_property`, `topology`, `functional_block` | Design patterns, constraints, quantitative rules, formal circuit topologies (LDO, Buck Converter) |
+| **5** | `design_methodology`, `design_constraint`, project nodes | Methodology definitions (`power_management`, `RF_highfreq`); per-design-run persisted constraints scoped by `design_id` |
 
-Edge types include `REQUIRES`, `USES`, `HAS_PROPERTY`, `CONNECTS_TO`, `MUST_BE_NEAR`, `GOVERNED_BY`, and others defined in `KGRelation`.
+**Known layer-numbering collision (not yet fixed — see
+`TOPOLOGY_CONSTRAINT_LAYER.md §4` for the migration proposal):**
+`src/knowledge_graph/ingestion/kg2_appnotes/kg2_graph_builder.py` writes
+`DESIGN_RECIPE` nodes at **layer=2**, contradicting the canonical layer-4
+assignment in this table and in the `KGNode` docstring. Do not assume the
+`layer` field alone reliably groups all recipe nodes until that migration
+lands — filter by `node_type` in addition to `layer` if this matters for
+your query.
+
+Edge types include `REQUIRES`, `USES`, `HAS_PROPERTY`, `CONNECTS_TO`, `MUST_BE_NEAR`, `GOVERNED_BY`, `IMPLEMENTS` (component realizes a topology), `CONSTRAINED_BY`, and others defined in `KGRelation`.
 
 ### Population scripts
 
@@ -1341,13 +1397,49 @@ Edge types include `REQUIRES`, `USES`, `HAS_PROPERTY`, `CONNECTS_TO`, `MUST_BE_N
 | 1–2 | `src/knowledge_graph/ingestion/kg1_aac/` — All About Circuits scraper + graph builder |
 | 4 | `src/knowledge_graph/ingestion/kg2_appnotes/` — application note prose extraction + KG-2/KG-4 builders |
 | 3 | `src/knowledge_graph/importers/p1_importer.py` — imports `ComponentDatasheet` JSON from P1 parser |
+| 4 | `src/knowledge_graph/topology/library.py` → `install_topologies()` — LDO + Buck Converter with parameterized `ScalingLaw` data on edges. **Schema and unit-tested only** — not called from any ingestion path, graph bootstrap, or `run_intent_pipeline()`. A graph with no explicit `install_topologies()` call has zero `TOPOLOGY` nodes. |
 | 5 | `src/knowledge_graph/admin/methodologies.py` — `seed_default_methodologies()` |
+| 5 | `src/knowledge_graph/constraints/__init__.py` → `persist_design_constraints()` — called from `run_intent_pipeline()` on every run; writes `DESIGN_CONSTRAINT` nodes |
 
-Storage: `KnowledgeGraph` class in `src/knowledge_graph/graph.py` (NetworkX; optional Neo4j via `config.neo4j_uri`).
+Storage: `KnowledgeGraph` class in `src/knowledge_graph/graph.py` is now a
+thin backward-compatible subclass of `NetworkXGraphBackend`
+(`src/knowledge_graph/backends/networkx_backend.py`). All storage logic
+lives behind the `GraphBackend` interface
+(`src/knowledge_graph/backends/_interfaces.py`), selected via
+`GraphBackendRegistry` and the `knowledge_graph.backend` config key
+(default, and only registered option today: `"networkx"`). **Neo4j is
+design-only** — `NEO4J_BACKEND_DESIGN.md` specifies the full backend, but
+`GRAPH_BACKEND_REGISTRY` has no `"neo4j"` entry, no driver dependency is
+installed, and selecting `"neo4j"` raises `ValueError` at registry
+construction. `config.neo4j_uri` exists on `Config` but nothing reads it.
 
 ### Query timing
 
-`query_graph()` in `src/knowledge_graph/query/__init__.py` runs inside `run_intent_pipeline()` immediately after intent parsing, **before** BOM generation. It traverses from goal-mapped start nodes to produce a `DesignSubgraph` scoped to the design methodology.
+`query_graph()` in `src/knowledge_graph/query/__init__.py` does **not** run
+immediately after intent parsing. Inside `run_intent_pipeline()` it runs
+after Stage 1c (`run_completion_engine`), Stage 1d (`RetrievalEngine`), and
+Stage 1e (`assert_interval_feasible` — a hard gate that can halt the
+pipeline before `query_graph` is ever called). See Section 2's updated
+diagram. It traverses from goal-mapped start nodes to produce a
+`DesignSubgraph` scoped to the design methodology.
+
+**Topology nodes are not yet reachable from this traversal:**
+`goal_mapper._START_NODE_TYPES` in `src/knowledge_graph/query/goal_mapper.py`
+maps goals to `(COMPONENT_TYPE, DESIGN_RECIPE)` nodes only — it does not
+include `TOPOLOGY`. Even in a graph where `install_topologies()` has been
+called, `query_graph()` will not surface `Topology`/`FunctionalBlock` nodes
+in the resulting `DesignSubgraph` until `goal_mapper` is updated.
+
+**RESOLVED 2026-07-06 (`DOC_DRIFT_AUDIT.md` N4):** `src/intent/interval_solver.py`
+reads `intent.goal_topology` to select the LDO dropout-chain rule.
+`src/intent/topology_classifier.py` now populates `goal_topologies` (and,
+via `populate_goal_topology_compat()`, `goal_topology`) inside
+`parse_intent()` — Stage 1 — using deterministic keyword matching at a
+0.60 confidence threshold. This is proven to actually take effect through
+the real pipeline in `tests/unit/intent/test_topology_pipeline_integration.py`:
+an LDO-style prompt with an infeasible supply now correctly halts at the
+Stage 2.75 gate with a named voltage/dropout conflict; boost- and
+buck-boost-style prompts correctly skip that rule and proceed.
 
 ### KGNode → BOMEntry path
 

@@ -1,3 +1,13 @@
+> **ARCHIVED 2026-07-06 — SUPERSEDED, DO NOT USE FOR ONBOARDING.**
+> This document describes a legacy 3-layer Knowledge Graph model
+> (Physics / Design Recipes / Component Rules) and a project tree
+> (`src/graph/`, `src/nlp/intent_parser.py`, `src/pipeline.py`) that were
+> never the implemented system. The live KG has 5 layers
+> (`src/schemas/kg.py`) and the real code lives under `src/knowledge_graph/`,
+> `src/intent/`, `src/orchestrator.py`. See
+> `documents/architecture/OPENFORGE_ARCHITECTURE.md` for the current model.
+> Flagged by `DOC_DRIFT_AUDIT.md` finding N17. Kept for history only.
+
 #  OpenForge Intelligence System — Architecture Document
 
 **Goal:** Given a natural language prompt like "build a 2.4GHz antenna", the system determines what components are needed, why, and hands that structured knowledge to KiCad for PCB generation — entirely offline, open source, and private.

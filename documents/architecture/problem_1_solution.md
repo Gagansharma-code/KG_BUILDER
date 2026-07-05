@@ -9,7 +9,9 @@
 
 PDFs are vector-based graphic files, not structured databases. To achieve absolute accuracy necessary for defense-grade PCB design, we cannot rely on regex or simple text scraping. The pipeline follows a **Hybrid Multimodal** approach, simulating human reading cognition: seeing the layout, understanding the grid, extracting the semantics, and validating the physics.
 
-The pipeline has **4 phases**:
+The pipeline has **5 phases** (updated 2026-07-06 — a Phase 5 was added
+after this document was originally written; see `DOC_DRIFT_AUDIT.md` N19
+and `src/datasheet/phase5_layout/`):
 
 ```
 PDF Input
@@ -24,7 +26,13 @@ PDF Input
 [Phase 3] Constrained Semantic Extraction  ──→  Normalized, typed JSON
    │
    ▼
-[Phase 4] Physics Validation  ──→  Validated data → KiCad MCP Server
+[Phase 4] Physics Validation  ──→  Validated data
+   │
+   ▼
+[Phase 5] Layout Extraction  ──→  PlacementConstraint list (src/datasheet/phase5_layout/)
+   │
+   ▼
+Validated ComponentDatasheet → KiCad MCP Server
 ```
 
 ---

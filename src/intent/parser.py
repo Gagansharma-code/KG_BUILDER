@@ -383,6 +383,7 @@ def parse_intent(
     from src.intent.ambiguity_detector import detect_ambiguities
     from src.intent.constraint_inferrer import infer_constraints
     from src.intent.methodology_classifier import validate_methodology
+    from src.intent.topology_classifier import classify_topology
     from src.schemas.common import Ambiguity
     from src.schemas.intent import (
         DesignMethodology,
@@ -397,6 +398,11 @@ def parse_intent(
         parsed = _rule_based_parse(prompt)
 
     cleaned_goal = clean_goal(parsed.goal)
+
+    # Step 1b: Classify topology (closes DOC_DRIFT_AUDIT.md N4). Matched
+    # against the raw prompt independently of goal cleaning — see
+    # topology_classifier.py's vocabulary reconciliation note for why.
+    topology_guesses = classify_topology(prompt)
 
     # Step 2: Validate/enrich methodology
     validated_methodology, was_overridden = validate_methodology(
@@ -418,6 +424,7 @@ def parse_intent(
         inferred_constraints=inferred_constraints,
         design_methodology=validated_methodology,
         board_type=parsed.board_type,
+        goal_topologies=topology_guesses,
         ambiguities=[],
         clarification_required=False,
         raw_prompt=prompt,
@@ -445,6 +452,7 @@ def parse_intent(
         inferred_constraints=inferred_constraints,
         design_methodology=validated_methodology,
         board_type=parsed.board_type,
+        goal_topologies=topology_guesses,
         ambiguities=ambiguity_flags,
         clarification_required=clarification_required,
         raw_prompt=prompt,

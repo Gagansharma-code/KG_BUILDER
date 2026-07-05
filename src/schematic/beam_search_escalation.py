@@ -1,7 +1,8 @@
 """Beam Search Escalation — systematic multi-chain schematic repair.
 
-Activated when ASHAResult.escalate_to_mcts is True. Replaces the originally
-proposed LLM-guided MCTS. See documents/architecture/MCTS_DECISION.md.
+Designed to activate when ASHAResult.escalate_to_mcts is True. Replaces the
+originally proposed LLM-guided MCTS. See
+documents/architecture/MCTS_DECISION.md.
 
 Uses programmatic graph mutations (same move types as SA polisher) but
 maintains beam_width parallel repair chains and evaluates all candidates
@@ -9,6 +10,12 @@ at each depth step, keeping the top beam_width by ERC score.
 
 No LLM inference is used. Zero GPU cost. All mutations are deterministic
 graph operations on list[NetlistEntry].
+
+STATUS (2026-07-06): implemented and gate-tested. `ASHAResult` is not a
+defined type anywhere in this codebase, and no ASHA search controller
+(search_controller.py) exists to call this module — it is not reachable
+from run_intent_pipeline() or run_e2e(). See src/bom/candidates.py module
+docstring and documents/architecture/PROJECT_CONTEXT.md §9.
 """
 
 from __future__ import annotations

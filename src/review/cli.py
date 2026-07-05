@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Callable, NoReturn, cast
 
 from src.config import get_config
+from src.review._schemas import GateStage
 from src.review.queue import (
     enqueue,
     export_corrections,
@@ -117,6 +118,54 @@ def cmd_approve(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_approve_design(args: argparse.Namespace) -> int:
+    """Approve a queued design by design_id and review stage.
+
+    After approval, continue the pipeline via
+    src.orchestrator.resume_after_review(design_id, ..., stage=...).
+    """
+    from src.review.queue import set_design_review_status
+
+    config = get_config()
+    notes = args.notes or "Approved by reviewer"
+    try:
+        item = set_design_review_status(
+            args.design_id, "approved", notes, config, stage=args.stage
+        )
+        print(
+            f"Approved design {item.component_id} stage {item.stage} "
+            f"(item {item.item_id[:8]}...)"
+        )
+        print(
+            "Resume with: "
+            "src.orchestrator.resume_after_review(design_id, ..., stage=...)"
+        )
+        return 0
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_reject_design(args: argparse.Namespace) -> int:
+    """Reject a queued design by design_id and review stage."""
+    from src.review.queue import set_design_review_status
+
+    config = get_config()
+    notes = args.notes or "Rejected by reviewer"
+    try:
+        item = set_design_review_status(
+            args.design_id, "rejected", notes, config, stage=args.stage
+        )
+        print(
+            f"Rejected design {item.component_id} stage {item.stage} "
+            f"(item {item.item_id[:8]}...)"
+        )
+        return 0
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
 def cmd_correct(args: argparse.Namespace) -> int:
     """Mark an item as corrected.
 
@@ -195,6 +244,52 @@ def main() -> int:
         default="",
     )
     approve_parser.set_defaults(func=cmd_approve)
+
+    stage_choices = [stage.value for stage in GateStage]
+
+    # approve-design command (blocking review gate, by design_id + stage)
+    approve_design_parser = subparsers.add_parser(
+        "approve-design",
+        help="Approve a queued design by design_id and stage",
+    )
+    approve_design_parser.add_argument(
+        "design_id",
+        help="ValidatedBOM.design_id of the queued design",
+    )
+    approve_design_parser.add_argument(
+        "--notes",
+        help="Optional approval notes",
+        default="",
+    )
+    approve_design_parser.add_argument(
+        "--stage",
+        help="Review gate stage to approve",
+        choices=stage_choices,
+        default=GateStage.BOM.value,
+    )
+    approve_design_parser.set_defaults(func=cmd_approve_design)
+
+    # reject-design command
+    reject_design_parser = subparsers.add_parser(
+        "reject-design",
+        help="Reject a queued design by design_id and stage",
+    )
+    reject_design_parser.add_argument(
+        "design_id",
+        help="ValidatedBOM.design_id of the queued design",
+    )
+    reject_design_parser.add_argument(
+        "--notes",
+        help="Optional rejection notes",
+        default="",
+    )
+    reject_design_parser.add_argument(
+        "--stage",
+        help="Review gate stage to reject",
+        choices=stage_choices,
+        default=GateStage.BOM.value,
+    )
+    reject_design_parser.set_defaults(func=cmd_reject_design)
 
     # correct command
     correct_parser = subparsers.add_parser(

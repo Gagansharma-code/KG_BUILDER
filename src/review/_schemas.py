@@ -9,9 +9,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
+
+
+class GateStage(str, Enum):
+    """Review-gated orchestration stages with resumable artifacts."""
+
+    BOM = "bom_generation"
+    NETLIST = "netlist_generation"
+    LAYOUT = "layout_generation"
+    NIR = "nir_validation"
 
 
 class ReviewQueueItem(BaseModel):
@@ -78,4 +88,23 @@ resolution tracking.
     resolution_notes: Optional[str] = Field(
         default=None,
         description="Human-entered notes about resolution",
+    )
+    bom_json: Optional[str] = Field(
+        default=None,
+        description=(
+            "Deprecated compatibility mirror for bom_generation snapshots. "
+            "New gates use artifact_json for every review-gated stage."
+        ),
+    )
+    artifact_json: Optional[str] = Field(
+        default=None,
+        description=(
+            "Full serialized review artifact snapshot at enqueue time. "
+            "The approved design is resumed from exactly this snapshot — "
+            "never regenerated."
+        ),
+    )
+    artifact_type: Optional[str] = Field(
+        default=None,
+        description="Pydantic model name stored in artifact_json.",
     )

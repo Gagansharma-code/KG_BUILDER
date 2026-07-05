@@ -349,7 +349,8 @@ class NIR:
     component_groups: list[ComponentGroup]
     routing_hints: list[RoutingHint]
     board_spec: BoardSpec
-    bom: list[BOMEntry]
+    bom: list[dict[str, Any]]  # NOTE: src/schemas/nir.py actual type — nir/builder.py
+                                # does not populate structured BOMEntry objects here
     justifications: dict[str, str]   # ref → justification string
     source_citations: dict[str, str] # ref → source document
     confidence_scores: dict[str, float]  # ref → confidence
@@ -403,17 +404,40 @@ Human review is a first-class pipeline stage, not an afterthought. Review gates 
 
 | Gate | Location | Trigger | Queue | Blocks Downstream |
 |------|---------|---------|-------|------------------|
-| BOM Review | L2 → L3 | Total BOM confidence < 0.85, or any component < 0.75, or no specific part found | SQLite review_queue | Yes — L3 does not start until BOM is approved |
-| Netlist Review | L5 → L6 | ERC errors from schematic synthesizer | SQLite review_queue | Yes — layout engine waits |
-| Layout Review | L6 → L7 | DRC-equivalent conflicts in placement spec | SQLite review_queue | Yes — NIR builder waits |
-| NIR Validation | L7 → L8 | Any CRITICAL NIR validation error | SQLite review_queue | Yes — serializers wait |
+| BOM Review | L2 → L3 | `validate_bom()` sets `review_required=True` (low confidence, CRITICAL flags, unresolved parts) | SQLite review_queue | **Yes — implemented.** `run_e2e()` halts with `status="pending_review"`; synthesis/layout/serialization do not run until approved |
+| Netlist Review | L5 → L6 | `SchematicGraph.erc_result.passed=False` or CRITICAL `schematic_synthesis` review flags | SQLite review_queue | **Yes — implemented.** `run_e2e()` halts before layout/NIR/output and `resume_after_review(..., stage="netlist_generation")` resumes from the persisted netlist snapshot |
+| Layout Review | L6 → L7 | Placeholder DRC-equivalent: hard `LayoutSpec.placement_constraints` below `confidence_thresholds["layout_constraint"]` (default `0.85`) | SQLite review_queue | **Yes — implemented.** `run_e2e()` halts before NIR/output and `resume_after_review(..., stage="layout_generation")` resumes from the persisted layout snapshot |
+| NIR Validation | L7 → L8 | `NIR.is_review_required()` (any CRITICAL NIR review flag) | SQLite review_queue | **Yes — implemented.** `run_e2e()` halts before serializers and `resume_after_review(..., stage="nir_validation")` resumes from the persisted NIR snapshot |
 | Post-Output Review | L8 | ERC/DRC errors from KiCad or tscircuit validation after generation | SQLite review_queue | No — output generated but flagged |
+
+### Multi-stage gate mechanism (implemented)
+
+- `enqueue_for_review()` stores a **full serialized artifact snapshot** in
+  the `artifact_json` column of the same SQLite `review_queue` record — one
+  source of truth, no separate snapshot store. `bom_json` remains as a
+  backward-compatible mirror for existing BOM review rows.
+- `src/orchestrator.run_e2e()` returns a `pending_review` result at the first
+  triggered gate; it never proceeds past that gate.
+- Approval/rejection is design- and stage-scoped:
+  `python -m src.review.cli approve-design <design_id> --stage <stage>` /
+  `reject-design <design_id> --stage <stage>` (wraps the existing item-level
+  `update_status`). Omitting `--stage` defaults to `bom_generation`.
+- `src/orchestrator.resume_after_review(design_id, graph, output_dir,
+  config, stage=<stage>)` continues an APPROVED design **from the exact
+  persisted artifact snapshot** — BOM, netlist, layout, and NIR artifacts are
+  never regenerated across their own review boundaries. PENDING/REJECTED
+  designs return a clear non-proceeding status.
 
 Review CLI pattern (consistent with P1):
 ```
-python -m src.review.cli list --stage bom
+python -m src.review.cli list
 python -m src.review.cli review <item_id>
 python -m src.review.cli approve <item_id>
+python -m src.review.cli approve-design <design_id> --stage bom_generation
+python -m src.review.cli approve-design <design_id> --stage netlist_generation
+python -m src.review.cli approve-design <design_id> --stage layout_generation
+python -m src.review.cli approve-design <design_id> --stage nir_validation
+python -m src.review.cli reject-design <design_id> --stage <stage>
 python -m src.review.cli correct <item_id> --value <correction>
 ```
 
@@ -440,83 +464,101 @@ python -m src.review.cli correct <item_id> --value <correction>
 
 ## 10. Project Directory Structure
 
+> Regenerated 2026-07-06 from the live `src/` tree (DOC_DRIFT_AUDIT.md N8).
+> The previous version of this section described paths that never existed
+> in this codebase (`src/pipeline.py`, `knowledge_graph/query_engine.py`,
+> `knowledge_graph/builder.py`, `schematic/synthesizer.py`,
+> `layout/placement_solver.py`, `layout/engine.py`,
+> `ingestion/placement_extractor.py`, flat `ingestion/scraper_aac.py`) —
+> treat any older copy of this doc as unreliable for onboarding.
+
 ```
-openforge-pcb/
+open_forge/
 ├── src/
 │   ├── intent/
-│   │   ├── parser.py               # NL → intent_dict
-│   │   └── methodology_classifier.py
+│   │   ├── parser.py                 # NL → IntentDict (Stage 1)
+│   │   ├── interval_solver.py        # Stage 2.75 deductive feasibility gate
+│   │   ├── methodology_classifier.py
+│   │   ├── constraint_inferrer.py
+│   │   ├── ambiguity_detector.py
+│   │   └── pipeline.py               # run_intent_pipeline() orchestrator
+│   ├── completion/                   # Stage 2 requirement completion engine
+│   ├── retrieval/                    # Stage 2.5 KB retrieval engine
 │   ├── knowledge_graph/
-│   │   ├── schema.py               # KGNode + KGEdge Pydantic models
-│   │   ├── builder.py              # Ingest triples → graph
-│   │   ├── query_engine.py         # intent_dict → design_subgraph
-│   │   ├── validator.py            # Graph consistency checks
+│   │   ├── graph.py                  # KnowledgeGraph — thin subclass of NetworkXGraphBackend
+│   │   ├── backends/                 # GraphBackend interface + registry + NetworkX impl
+│   │   ├── validator.py              # Graph consistency checks
+│   │   ├── semantic_search.py        # FAISS index over component/recipe nodes
+│   │   ├── topology/                 # TOPOLOGY/FUNCTIONAL_BLOCK schema + LDO/Buck instances
+│   │   ├── constraints/              # DESIGN_CONSTRAINT persistence (design_id-scoped)
+│   │   ├── admin/                    # KG-5 DesignMethodology CLI
+│   │   ├── pin_normalizer/           # dictionary → context → LLM fallback tiers
+│   │   ├── query/                    # query_graph(), goal_mapper, traversal, result_builder
+│   │   ├── importers/                # p1_importer.py — ComponentDatasheet → KG-3
 │   │   └── ingestion/
-│   │       ├── scraper_aac.py      # All About Circuits scraper
-│   │       ├── scraper_appnotes.py # TI/ADI app note downloader
-│   │       ├── triple_extractor.py # Text → (S,V,O) triples
-│   │       ├── placement_extractor.py  # Spatial language → KG-4 rules
-│   │       └── p1_importer.py      # ComponentDatasheet JSON → KG-3 edges
+│   │       ├── triple_extractor.py   # spaCy → LLM fallback triple extraction
+│   │       ├── kg1_aac/              # All About Circuits scraper + graph builder
+│   │       └── kg2_appnotes/         # app note scraper + prose_extractor.py + KG-2/KG-4 builders
+│   ├── knowledge_base/
+│   │   ├── tier0/                    # KiCad .kicad_sym/.kicad_mod parser → JSON maps
+│   │   └── scraper/                  # Nexar/manufacturer/DigiKey adapters + population_runner
 │   ├── bom/
-│   │   ├── generator.py            # design_subgraph → validated_bom
-│   │   ├── selector.py             # ComponentType → specific part
-│   │   └── reviewer.py             # Confidence scoring + review flagging
-│   ├── datasheet/                  # P1 parser (existing, extended)
+│   │   ├── generator.py              # generate_bom(subgraph, intent, config, retrieval_result=...)
+│   │   ├── selector.py                # ComponentType → specific part
+│   │   ├── validator.py               # validate_bom() — cross-component checks
+│   │   ├── candidates.py              # generate_bom_candidates() / BOMLadder — not wired to E2E
+│   │   ├── tpe_sampler.py             # cross-design preference learning — not wired to E2E
+│   │   └── confidence_scorer.py
+│   ├── datasheet/                    # P1 parser (legacy path still used by orchestrator)
 │   │   ├── phase1_dla/
 │   │   ├── phase2_tsr/
 │   │   ├── phase3_extract/
 │   │   ├── phase4_validate/
-│   │   └── phase5_layout/          # NEW: layout section extraction
-│   ├── pin_normalizer/             # P2
-│   │   ├── dictionary.py
-│   │   └── llm_fallback.py
-│   ├── block_diagram/              # P3
-│   │   ├── detector.py             # VLM: image → topology
-│   │   └── graph_builder.py        # Topology → KG-2 edges
-│   ├── schematic/                  # P5
-│   │   ├── synthesizer.py          # BOM + component data → netlist
-│   │   ├── net_assigner.py         # Power, signal, protocol net assignment
-│   │   ├── passive_assigner.py     # Decoupling, bypass, pull-up assignment
-│   │   └── erc.py                  # Electrical rules check
-│   ├── layout/
-│   │   ├── engine.py               # Schematic → layout_spec
-│   │   ├── placement_solver.py     # Constraint satisfaction for placement
-│   │   └── routing_hints.py        # Impedance, length match, width hints
+│   │   └── phase5_layout/
+│   ├── parsing/                      # Modular parser backends (Tier 2) — not yet on E2E path
+│   │   └── backends/                 # BackendRegistry pattern this doc's §10 previously lacked
+│   ├── schematic/                    # synthesize_schematic(), net_assigner, passive_assigner, erc
+│   │   ├── sa_polisher.py            # SA graph polisher — not wired to E2E (no ASHA controller)
+│   │   └── beam_search_escalation.py # beam search — not wired to E2E
+│   ├── layout/                       # generate_layout_spec(), routing_hint_generator.py
 │   ├── nir/
-│   │   ├── schema.py               # NIR Pydantic models (single source of truth)
-│   │   ├── builder.py              # Assemble NIR from all upstream artifacts
-│   │   └── validator.py            # Cross-validate NIR consistency
+│   │   ├── builder.py                # assemble_nir()
+│   │   ├── validator.py              # validate_nir()
+│   │   └── migrations.py             # schema version compatibility checks
 │   ├── output/
-│   │   ├── kicad_serializer.py     # NIR → KiCad MCP calls
-│   │   ├── tscircuit_serializer.py # NIR → tscircuit JSON/TSX
-│   │   └── doc_generator.py        # NIR → PDF design report
+│   │   ├── kicad_serializer.py       # NIR → KiCad MCP calls
+│   │   ├── tscircuit_serializer.py   # NIR → tscircuit TSX/SVG/GLB
+│   │   └── doc_generator.py          # NIR → design report (PDF/Markdown)
 │   ├── review/
-│   │   ├── queue.py                # SQLite review queue writer
-│   │   └── cli.py                  # Review CLI
+│   │   ├── queue.py                  # SQLite review queue — enqueue_bom/nir, bom_json snapshots
+│   │   └── cli.py                    # list/review/approve/approve-design/correct/export
 │   ├── schemas/
-│   │   ├── nir.py                  # NIR schema (master)
-│   │   ├── datasheet.py            # ComponentDatasheet schema
-│   │   └── kg.py                   # KGNode + KGEdge schema
-│   ├── config.py                   # All settings — single source
-│   └── pipeline.py                 # End-to-end orchestrator
-├── models/                         # Local model weights (gitignored)
+│   │   ├── intent.py                 # IntentDict / ImprovedIntentDict, ValidatedBOM, BOMEntry
+│   │   ├── nir.py                    # NIR schema (master)
+│   │   ├── datasheet.py              # ComponentDatasheet schema
+│   │   ├── kg.py                     # KGNode / KGEdge / KGNodeType / KGRelation
+│   │   └── common.py                 # Ambiguity, TopologyGuess, shared value-spec models
+│   ├── synthesis/
+│   │   └── pipeline.py               # run_synthesis_pipeline() — schematic → layout → NIR
+│   ├── config.py                     # Config (BaseSettings) — single source of truth
+│   └── orchestrator.py               # run_e2e() / resume_after_review() — the actual E2E entry point
+├── models/                           # Local model weights (gitignored)
 ├── data/
-│   ├── raw/                        # Scraped HTML, downloaded PDFs
-│   ├── triples/                    # Extracted (S,V,O) JSONL
-│   └── graph/                      # Serialized graph (GraphML or Neo4j dump)
+│   ├── datasheets/                   # SHA-256-keyed downloaded PDFs
+│   └── kicad_maps/                   # symbol_map.json / footprint_map.json (Tier 0 output)
 ├── corpus/
-│   ├── golden/                     # Verified datasheets + ground truth
-│   └── test/                       # Test datasheets
+│   ├── golden/                       # Verified datasheets + ground truth
+│   └── test/                         # Test datasheets
 ├── eval/
-│   ├── run_eval.py
-│   └── reports/
+│   ├── gates/                        # team_a_gate.py .. team_f_gate.py
+│   └── benchmarks/                   # 15-task Pass@1/Pass@N eval harness
 ├── configs/
 │   ├── default.yaml
-│   ├── canonical_units.yaml
-│   ├── methodology_rules.yaml
-│   └── sources.yaml                # Scraper source list
+│   ├── canonical_functions.yaml
+│   └── sources.yaml                  # app note source list
+├── documents/                        # This documentation tree
 ├── docker/
-│   ├── Dockerfile
+│   ├── Dockerfile                    # python:3.11-slim
 │   └── build_airgapped_image.sh
 └── pyproject.toml
 ```
@@ -525,38 +567,76 @@ openforge-pcb/
 
 ## 11. Inter-Module API Contracts
 
-Each module exposes a Python API with typed inputs and outputs. These contracts are the integration boundaries between teams.
+> Regenerated 2026-07-06 from live function signatures (DOC_DRIFT_AUDIT.md N9).
+> The signatures below were copy-paste-broken in the previous version —
+> every one was missing a required parameter.
 
 ```python
-# L0: Intent Parser
+# Stage 1: Intent Parser
 def parse_intent(prompt: str, config: Config) -> IntentDict: ...
 
-# L1: KG Query Engine
-def query_graph(intent: IntentDict, config: Config) -> DesignSubgraph: ...
+# Stage 2.75: Interval-constraint solver (hard gate, runs before KG query)
+def assert_interval_feasible(intent: ImprovedIntentDict) -> IntervalCheckResult: ...
+# Raises ConstraintConflictError on infeasible constraints.
 
-# L2: BOM Generator
-def generate_bom(subgraph: DesignSubgraph, config: Config) -> ValidatedBOM: ...
+# KG Query Engine — note the required `graph` parameter
+def query_graph(intent: IntentDict, graph: KnowledgeGraph, config: Config) -> DesignSubgraph: ...
 
-# L3: Datasheet Parser (extended P1)
+# BOM Generator — note the required `intent` parameter and optional retrieval_result
+def generate_bom(
+    subgraph: DesignSubgraph,
+    intent: IntentDict,
+    config: Config,
+    retrieval_result: Optional[RetrievalResult] = None,
+) -> ValidatedBOM: ...
+
+# BOM Validator
+def validate_bom(bom: ValidatedBOM, config: Config) -> ValidatedBOM: ...
+
+# Datasheet Parser (P1, still the E2E path — modular parser not yet wired)
 def parse_datasheet(component_id: str, pdf_path: Path, config: Config) -> ComponentDatasheet: ...
 
-# L4: Pin Normalizer
+# Pin Normalizer
 def normalize_pins(datasheets: list[ComponentDatasheet], config: Config) -> list[ComponentDatasheet]: ...
 
-# L5: Schematic Synthesizer
-def synthesize_schematic(datasheets: list[ComponentDatasheet], subgraph: DesignSubgraph, config: Config) -> SchematicGraph: ...
+# Schematic Synthesizer — note the required `bom` parameter
+def synthesize_schematic(
+    bom: ValidatedBOM,
+    datasheets: list[ComponentDatasheet],
+    subgraph: DesignSubgraph,
+    config: Config,
+) -> SchematicGraph: ...
 
-# L6: Layout Engine
-def generate_layout_spec(schematic: SchematicGraph, datasheets: list[ComponentDatasheet], subgraph: DesignSubgraph, config: Config) -> LayoutSpec: ...
+# Layout Engine
+def generate_layout_spec(
+    schematic: SchematicGraph,
+    datasheets: list[ComponentDatasheet],
+    subgraph: DesignSubgraph,
+    config: Config,
+) -> LayoutSpec: ...
 
-# L7: NIR Builder
-def build_nir(bom: ValidatedBOM, datasheets: list[ComponentDatasheet], schematic: SchematicGraph, layout: LayoutSpec, config: Config) -> NIR: ...
+# NIR Builder
+def build_nir(
+    bom: ValidatedBOM,
+    datasheets: list[ComponentDatasheet],
+    schematic: SchematicGraph,
+    layout: LayoutSpec,
+    config: Config,
+) -> NIR: ...
 
-# L8a: KiCad Serializer
+# KiCad Serializer
 def serialize_to_kicad(nir: NIR, output_dir: Path, config: Config) -> KiCadOutput: ...
 
-# L8b: tscircuit Serializer
+# tscircuit Serializer
 def serialize_to_tscircuit(nir: NIR, output_dir: Path, config: Config) -> TSCircuitOutput: ...
+
+# E2E Orchestrator — the actual top-level entry point
+def run_e2e(prompt: str, graph: KnowledgeGraph, output_dir: Path, config: Config) -> E2EResult: ...
+
+# Resume after human approval of a review-gated design
+def resume_after_review(
+    design_id: str, graph: KnowledgeGraph, output_dir: Path, config: Config,
+) -> E2EResult: ...
 ```
 
 ---
@@ -568,7 +648,7 @@ def serialize_to_tscircuit(nir: NIR, output_dir: Path, config: Config) -> TSCirc
 ```
 Docker Container: openforge-pcb
 ├── GPU: CUDA 12.1 runtime
-├── Python 3.10 + all dependencies
+├── Python 3.11 + all dependencies  # docker/Dockerfile pins python:3.11-slim; pyproject.toml requires >=3.10
 ├── Model weights baked in:
 │   ├── YOLOv8n-DocLayNet (0.5GB)
 │   ├── Qwen2-VL-7B-Instruct (14GB bfloat16)

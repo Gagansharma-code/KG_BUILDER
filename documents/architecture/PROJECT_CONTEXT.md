@@ -10,13 +10,13 @@
 
 | Field | Value |
 |-------|-------|
-| **Last updated** | 2026-07-05 |
-| **Updated by** | Doc archive cleanup; intent pipeline / E2E status corrected |
-| **Current milestone** | Teams A–E gates implemented; Stage 2 + retrieval wired in intent pipeline; E2E orchestrator (`run_e2e`) implemented; ASHA search controller + GPU eval deferred |
-| **Active work** | KB Tier 0 KiCad library ingestion complete; Tier 3 community pipeline deferred; Search controller: ASHA + SA polisher + beam search escalation complete |
+| **Last updated** | 2026-07-06 |
+| **Updated by** | DOC_DRIFT_AUDIT.md remediation — internal contradictions resolved |
+| **Current milestone** | Teams A–E gates implemented; Stage 2 + retrieval + Stage 2.75 interval solver wired in intent pipeline; blocking human-review gate at orchestrator level; E2E orchestrator (`run_e2e`) implemented; ASHA search controller itself still missing — see §9 |
+| **Active work** | KB Tier 0 KiCad library ingestion complete (JSON symbol/footprint maps — no KG writer yet, see §3.4); Tier 3 community pipeline deferred; Search-stack **modules** (SA polisher, beam search escalation, TPE sampler, `generate_bom_candidates`) complete and gate-tested but **not called from `run_intent_pipeline()` or `run_e2e()`** — the ASHA controller that would wire them (`search_controller.py`) does not exist. Do not read "modules complete" as "search controller complete." |
 | **Repo root** | `open_forge/` (package: `openforge-pcb`) |
 | **Code root** | `src/` (canonical); legacy P1 prototype at `prototypes/p1-parser/` |
-| **Unit tests** | 699 passing (`pytest tests/unit -q`) — per commit 76b78d6 |
+| **Unit tests** | 1097 collected, passing (`pytest tests/unit -q`) — verified 2026-07-06; supersedes prior "699" figure which predates the topology/constraint/review-gate work |
 | **Retrieval gate tests** | 36 passing (`pytest tests/retrieval tests/db -q`) — Stage 3 + Stage 05 |
 
 ### Team dashboard
@@ -38,7 +38,7 @@
 |-------------|--------|-------|
 | `docker/Dockerfile` | ✅ | Python 3.11 + Poppler + Node 20 + `@tscircuit/cli` pre-cached |
 | `docker/build_airgapped_image.sh` | ✅ | Builds and exports `openforge-pcb:airgapped.tar` |
-| Full E2E orchestrator (prompt → fabrication files) | ⬜ | Team pipelines exist; top-level wiring pending |
+| Full E2E orchestrator (prompt → fabrication files) | ✅ | `src/orchestrator.py` — `run_e2e()` wired intent → datasheet parse → pin normalize → synthesis → serialization; blocking human-review gate + `resume_after_review()`; gate-tested in `tests/unit/test_orchestrator.py` + `tests/unit/test_review_gate.py`. Legacy P1 parser on this path (see §9 #4) — modular parser swap pending. |
 | Improvement-plan docs | ✅ | `documents/improvement_plan/` (5 architecture decisions + tscircuit loopholes) |
 | Stage 2 completion engine | 🟡 | `src/completion/` — smoke-tested on Entry 001; `tests/completion/smoke_test_real_prompts.py` 12/12 PASS |
 | PostgreSQL KB schema | ✅ | `db/migrations/001_initial_schema.sql` — pgvector `VECTOR(4096)` for Qwen3 embeddings |
@@ -371,6 +371,10 @@ Natural Language Prompt
 2. **GPU lab verification** — Phase 2 VLM and Phase 3 LLM paths need GPU run with weights
 3. **Grid-level golden GT** — required for Phase 2 cell/merged-cell accuracy exit gate
 4. **Modular parser E2E** — `parse_datasheet_modular` + `BackendRegistry` exist; E2E still uses legacy `parse_datasheet`
+5. **Topology KG install not wired** — `src/knowledge_graph/topology/library.py` `install_topologies()` is schema + unit-tested only; not called from ingestion, graph bootstrap, or `run_intent_pipeline()`. A production graph has zero `TOPOLOGY` nodes until this is called explicitly.
+6. ~~`goal_topology` never populated by the parser~~ — **RESOLVED 2026-07-06.** `src/intent/topology_classifier.py` wired into `parse_intent()`; `intent.goal_topology` is now populated for real prompts. See `WHATS_LEFT.md` task 3.9.
+7. **`goal_mapper` does not surface Topology nodes** — even after `install_topologies()` is called, `query_graph()` cannot return `TOPOLOGY`/`FUNCTIONAL_BLOCK` nodes because `goal_mapper._START_NODE_TYPES` only includes `COMPONENT_TYPE` and `DESIGN_RECIPE`.
+8. **Layer-numbering collision** — `DESIGN_RECIPE` nodes are written at `layer=2` by `kg2_graph_builder.py`, contradicting the canonical layer-4 assignment in `KGNode`'s docstring and in `TOPOLOGY_CONSTRAINT_LAYER.md`. See that doc §4 for the proposed migration (not yet executed).
 
 ### Immediate next steps (ordered)
 

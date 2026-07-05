@@ -1,7 +1,7 @@
 # OpenForge — What's Left
 
-> **Last updated:** 2026-06-27
-> **Updated by:** Cursor
+> **Last updated:** 2026-07-06
+> **Updated by:** DOC_DRIFT_AUDIT.md remediation (synced against PROJECT_CONTEXT.md)
 > **Rule:** Update this file whenever a task is completed, added, or reprioritised.
 >            Every change must be recorded in the Change Log at the bottom.
 
@@ -62,10 +62,14 @@ These populate the KG. System can run without them but will produce poor BOMs.
 |---|------|--------|-------|
 | 3.1 | Book parser (KG-1) — replace spaCy primary with LLM-primary triple extraction | ⬜ Not started | spaCy stays as sentence boundary only |
 | 3.2 | Book parser (KG-1) — add chapter classifier to route formula-heavy chapters | ⬜ Not started | Keyword heuristic, no ML needed |
-| 3.3 | Nexar batch pre-ingestion CLI — GraphQL client + PDF downloader + batch runner | ⬜ Not started | Three-component build |
-| 3.4 | KiCad library file importer (Tier 0) — s-expression parser → KG writer | ⬜ Not started | Deterministic, no ML |
-| 3.5 | App note prose extractor — placement rule extraction from app note text | ⬜ Not started | placement_extractor.py is a stub |
-| 3.6 | Run KB population — Nexar batch pre-ingestion on 10 priority components | ⬜ Not started | Depends on 3.3 |
+| 3.3 | Nexar batch pre-ingestion — GraphQL client + PDF downloader + checkpointed runner | 🟡 Implemented, not yet run | `src/knowledge_base/scraper/adapters/nexar_adapter.py`, `pdf_downloader.py`, `mpn_discovery.py`, `population_runner.py` (4-phase checkpoint/resume) all exist and are gate-tested. Remaining: task 3.6, a production run. |
+| 3.4 | KiCad library file importer (Tier 0) | 🟡 Parser done, KG writer missing | `src/knowledge_base/tier0/` (`symbol_parser.py`, `footprint_parser.py`, `map_generator.py`, `batch_runner.py`) parses `.kicad_sym`/`.kicad_mod` and writes JSON symbol/footprint maps. **Does not write KG nodes** — no `kg3_writer.py` exists yet to convert those maps into `COMPONENT_INSTANCE`/`PIN` nodes. |
+| 3.5 | App note prose extractor — placement rule extraction from app note text | ✅ Done | `src/knowledge_graph/ingestion/kg2_appnotes/prose_extractor.py` (not `placement_extractor.py` — that filename never existed) implements `extract_design_rules()` / `extract_placement_rules()`, tested in `tests/unit/test_kg2_appnotes.py`. |
+| 3.6 | Run KB population — Nexar batch pre-ingestion on 10 priority components | ⬜ Not started | Depends on 3.3 (module ready, production run not yet executed) |
+| 3.7 | Tier 0 → KG-3 writer — convert KiCad symbol/footprint maps into KG nodes | ⬜ Not started | New task, split out of 3.4 now that the parser side is confirmed done |
+| 3.8 | Wire `install_topologies()` into graph bootstrap or a population phase | ⬜ Not started | `src/knowledge_graph/topology/library.py` exists, schema + unit-tested; not called from any ingestion path today. Zero `TOPOLOGY` nodes in a production graph until this runs. |
+| 3.9 | Populate `intent.goal_topology` in the parser/completion engine | ✅ Done | `src/intent/topology_classifier.py` — deterministic keyword classifier (mirrors `methodology_classifier.py`), wired into `parse_intent()`. Threshold 0.60, matching the pre-existing hardcoded cutoff in `axiom_loader.py`/`retrieval/planner.py`. Proven end-to-end in `tests/unit/intent/test_topology_pipeline_integration.py`. Also unblocks `axiom_loader`/`retrieval` topology consumption, which read the same field. |
+| 3.10 | Add `TOPOLOGY` to `goal_mapper._START_NODE_TYPES` | ⬜ Not started | Required before `query_graph()` can surface Topology/FunctionalBlock nodes even after 3.8 lands |
 
 ---
 
@@ -100,6 +104,12 @@ Record every finished task here with date.
 
 | Date | Task | Notes |
 |------|------|-------|
+| 2026-07-06 | Topology classification wired into Stage 1 (task 3.9, closes DOC_DRIFT_AUDIT.md N4) | `src/intent/topology_classifier.py`; `intent.goal_topology` now actually populated in production, proven by real-pipeline integration tests |
+| 2026-07-06 | Blocking human-review gate at orchestrator level | `src/orchestrator.py` `run_e2e()` halts (`status="pending_review"`) instead of warning-and-proceeding; `bom_json` snapshot column on `review_queue`; `approve-design`/`reject-design` CLI; `resume_after_review()` resumes from the persisted snapshot (never regenerates). Closed DOC_DRIFT_AUDIT.md finding N7. |
+| 2026-07-06 | Stage 2.75 interval-constraint solver | `src/intent/interval_solver.py` — voltage/dropout chain + thermal budget rules; wired into `run_intent_pipeline()` before `query_graph()` and into `generate_bom_candidates()`; fails loudly with named conflicts. |
+| 2026-07-06 | Topology + Constraint KG schema | New `KGNodeType` members (`TOPOLOGY`, `FUNCTIONAL_BLOCK`, `DESIGN_CONSTRAINT`), `KGRelation.IMPLEMENTS`/`CONSTRAINED_BY`, `KGNode.design_id`. LDO + Buck Converter formal topologies with parameterized `ScalingLaw` edges (`src/knowledge_graph/topology/`). Per-design persisted constraint nodes (`src/knowledge_graph/constraints/`). **Not yet wired into production graph paths — see Tier 3 tasks 3.8–3.10.** |
+| 2026-07-06 | GraphBackend abstraction | `src/knowledge_graph/backends/` — `GraphBackend` interface, `NetworkXGraphBackend` (moved from monolithic `graph.py`), `GraphBackendRegistry`. `graph.py` is now a thin compat subclass. Neo4j backend is design-only (`NEO4J_BACKEND_DESIGN.md`) — no driver, no registry entry. |
+| 2026-07-05 | Full documentation drift audit (`DOC_DRIFT_AUDIT.md`) | 26 findings across architecture docs vs. live code; this file and `PROJECT_CONTEXT.md` corrected per the audit's recommended fix order. |
 | 2026-06-27 | RetrievalEngine wired into intent pipeline (task 1.5) | Stage 2.5 _run_retrieval; triple return; generate_bom stub kwarg; 8/8 gate tests |
 | 2026-06-27 | Stage 2 wired into intent pipeline (task 1.3) | _run_stage2 + Gate 2 in run_intent_pipeline; 7/7 gate tests |
 | 2026-06-27 | E2E orchestrator — src/orchestrator.py + 8/8 gate tests | run_e2e() wires Teams A–E; never raises |
@@ -130,9 +140,12 @@ Format: `YYYY-MM-DD | action | what changed | why`
 
 | Date | Action | What | Why |
 |------|--------|------|-----|
+| 2026-07-06 | CORRECTED | Tasks 3.3/3.4/3.5 status vs. live code | DOC_DRIFT_AUDIT.md N12–N14: Nexar scraper and Tier 0 parser were implemented but marked "Not started"; prose extractor was done but referenced under a filename (`placement_extractor.py`) that never existed |
+| 2026-07-06 | ADDED | Tasks 3.7–3.10 (Tier 0 KG writer, topology install/wiring, goal_topology population) | Split out of the drift audit's topology-wiring and Tier 0 findings (N4, N3) |
+| 2026-07-06 | COMPLETED | Blocking review gate, Stage 2.75 interval solver, Topology/Constraint schema, GraphBackend abstraction | Landed since the 2026-06-27 update; this file had not been synced (DOC_DRIFT_AUDIT.md pattern #3, WHATS_LEFT vs PROJECT_CONTEXT desync) |
 | 2026-06-27 | ADDED | Parser full-scope gaps 2.3–2.9 from gap analysis | Track MCU/RF/thermal coverage beyond analog/power baseline |
 | 2026-06-27 | COMPLETED | RetrievalEngine BOM wiring (task 1.5) | tier_1.5_prompt implemented; 8/8 unit gate tests pass; orchestrator triple unpack |
-| 2026-06-27 | COMPLETED | Embedding ingestion pipeline (task 1.4) | tier_1.4_prompt implemented; 10/10 unit gate tests pass |
+| 2026-06-27 | COMPLETED | Embedding ingestion **module** (task 1.4) | `src/retrieval/embedding_ingestor.py` — `run_embedding_ingestion()` implemented, 10/10 unit gate tests pass. **Not called** from `src/orchestrator.py`, `src/intent/pipeline.py`, or `src/knowledge_base/scraper/population_runner.py` — gate-tested module only, not runtime-integrated (DOC_DRIFT_AUDIT.md N20). |
 | 2026-06-27 | COMPLETED | Stage 2 intent pipeline wiring (task 1.3) | tier_1.3_prompt implemented; 7/7 unit gate tests pass |
 | 2026-06-27 | COMPLETED | E2E orchestrator (task 1.2) — src/orchestrator.py | Tier 1 prompt implemented; 8/8 unit gate tests pass |
 | 2026-06-27 | COMPLETED | PARSER_P1–P8 executed and gate-tested in Cursor | User confirmed all 8 parser phases done |

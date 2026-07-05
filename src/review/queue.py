@@ -11,10 +11,11 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, Optional, cast
+from typing import Any, Literal, Optional, cast
 
+from pydantic import BaseModel
 from src.datasheet.phase4_validate import ValidationResult
-from src.review._schemas import ReviewQueueItem
+from src.review._schemas import GateStage, ReviewQueueItem
 from src.config import Config
 from src.schemas.datasheet import ComponentDatasheet
 from src.schemas.intent import ValidatedBOM
@@ -35,7 +36,10 @@ CREATE TABLE IF NOT EXISTS review_queue (
     created_at TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     resolved_at TEXT,
-    resolution_notes TEXT
+    resolution_notes TEXT,
+    bom_json TEXT,
+    artifact_json TEXT,
+    artifact_type TEXT
 )
 """
 
@@ -73,30 +77,26 @@ def _init_db(db_path: Path) -> None:
     try:
         cursor = conn.cursor()
         cursor.execute(CREATE_TABLE_SQL)
+        # Migrations: queues created before blocking gates lack snapshot
+        # columns — add them in place (single source of truth, no file store).
+        cursor.execute("PRAGMA table_info(review_queue)")
+        existing_columns = {row[1] for row in cursor.fetchall()}
+        if "bom_json" not in existing_columns:
+            cursor.execute("ALTER TABLE review_queue ADD COLUMN bom_json TEXT")
+        if "artifact_json" not in existing_columns:
+            cursor.execute("ALTER TABLE review_queue ADD COLUMN artifact_json TEXT")
+        if "artifact_type" not in existing_columns:
+            cursor.execute("ALTER TABLE review_queue ADD COLUMN artifact_type TEXT")
         conn.commit()
     finally:
         conn.close()
 
 
-def _row_to_item(
-    row: tuple[
-        str,
-        str,
-        str,
-        str,
-        str,
-        str,
-        str,
-        str,
-        str,
-        str | None,
-        str | None,
-    ],
-) -> ReviewQueueItem:
+def _row_to_item(row: tuple) -> ReviewQueueItem:
     """Convert a database row to a ReviewQueueItem.
 
     Args:
-        row: Database row tuple
+        row: Database row tuple (11 columns pre-migration, then snapshot columns)
 
     Returns:
         ReviewQueueItem from the row data
@@ -113,6 +113,12 @@ def _row_to_item(
         status=cast(Literal["pending", "approved", "corrected", "rejected"], row[8]),
         resolved_at=row[9],
         resolution_notes=row[10],
+        bom_json=row[11] if len(row) > 11 else None,
+        artifact_json=(
+            row[12] if len(row) > 12 and row[12] is not None
+            else row[11] if len(row) > 11 else None
+        ),
+        artifact_type=row[13] if len(row) > 13 else None,
     )
 
 
@@ -160,8 +166,8 @@ def enqueue(
         cursor.execute(
             """
             INSERT INTO review_queue
-            (item_id, stage, component_id, pdf_path, severity, verdict, flags, created_at, status, resolved_at, resolution_notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (item_id, stage, component_id, pdf_path, severity, verdict, flags, created_at, status, resolved_at, resolution_notes, bom_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item.item_id,
@@ -175,6 +181,7 @@ def enqueue(
                 item.status,
                 item.resolved_at,
                 item.resolution_notes,
+                item.bom_json,
             ),
         )
         conn.commit()
@@ -193,6 +200,9 @@ def _write_item(
     verdict: str,
     flags: list[str],
     config: Config,
+    bom_json: Optional[str] = None,
+    artifact_json: Optional[str] = None,
+    artifact_type: Optional[str] = None,
 ) -> ReviewQueueItem:
     """Write a review queue item to SQLite."""
     db_path = _get_db_path(config)
@@ -205,6 +215,9 @@ def _write_item(
         severity=severity,
         verdict=verdict,
         flags=flags,
+        bom_json=bom_json,
+        artifact_json=artifact_json if artifact_json is not None else bom_json,
+        artifact_type=artifact_type,
     )
 
     conn = sqlite3.connect(str(db_path))
@@ -213,8 +226,8 @@ def _write_item(
         cursor.execute(
             """
             INSERT INTO review_queue
-            (item_id, stage, component_id, pdf_path, severity, verdict, flags, created_at, status, resolved_at, resolution_notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (item_id, stage, component_id, pdf_path, severity, verdict, flags, created_at, status, resolved_at, resolution_notes, bom_json, artifact_json, artifact_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item.item_id,
@@ -228,6 +241,9 @@ def _write_item(
                 item.status,
                 item.resolved_at,
                 item.resolution_notes,
+                item.bom_json,
+                item.artifact_json,
+                item.artifact_type,
             ),
         )
         conn.commit()
@@ -238,20 +254,158 @@ def _write_item(
     return item
 
 
+def _stage_value(stage: GateStage | str) -> str:
+    return stage.value if isinstance(stage, GateStage) else str(stage)
+
+
+def _to_jsonable(value: Any) -> Any:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if isinstance(value, list):
+        return [_to_jsonable(item) for item in value]
+    if isinstance(value, tuple):
+        return [_to_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _to_jsonable(val) for key, val in value.items()}
+    return value
+
+
+def _snapshot_json(
+    artifact: BaseModel,
+    stage: GateStage | str,
+    resume_context: Optional[dict[str, Any]] = None,
+) -> str:
+    payload = {
+        "stage": _stage_value(stage),
+        "artifact_type": type(artifact).__name__,
+        "artifact": artifact.model_dump(mode="json"),
+        "resume_context": _to_jsonable(resume_context or {}),
+    }
+    return json.dumps(payload)
+
+
+def enqueue_for_review(
+    artifact: BaseModel,
+    stage: GateStage | str,
+    design_id: str,
+    config: Config,
+    *,
+    flags: Optional[list[str]] = None,
+    severity: Optional[Literal["CRITICAL", "WARNING"]] = None,
+    verdict: str = "REVIEW_REQUIRED",
+    resume_context: Optional[dict[str, Any]] = None,
+) -> ReviewQueueItem:
+    """Write any review-gated stage artifact to the queue.
+
+    artifact_json stores an envelope with the reviewed artifact and the
+    already-computed upstream context needed to resume without regeneration.
+    """
+    stage_value = _stage_value(stage)
+    artifact_flags = flags or []
+    resolved_severity: Literal["CRITICAL", "WARNING"] = severity or (
+        "CRITICAL"
+        if any("CRITICAL" in flag or flag.startswith("critical:") for flag in artifact_flags)
+        else "WARNING"
+    )
+    artifact_json = _snapshot_json(artifact, stage, resume_context)
+    bom_json = artifact.model_dump_json() if stage_value == GateStage.BOM.value else None
+
+    return _write_item(
+        stage=stage_value,
+        component_id=design_id,
+        pdf_path="N/A",
+        severity=resolved_severity,
+        verdict=verdict,
+        flags=artifact_flags,
+        config=config,
+        bom_json=bom_json,
+        artifact_json=artifact_json,
+        artifact_type=type(artifact).__name__,
+    )
+
+
 def enqueue_bom(bom: ValidatedBOM, config: Config) -> ReviewQueueItem:
-    """Write BOM review item to queue with stage='bom_generation'."""
+    """Write BOM review item to queue with stage='bom_generation'.
+
+    Stores the full serialized ValidatedBOM on the same record (bom_json
+    column) so an approved design can later be resumed from the exact
+    snapshot that was reviewed — never a regenerated one.
+    """
     severity: Literal["CRITICAL", "WARNING"] = (
         "CRITICAL" if any("CRITICAL" in f for f in bom.review_flags) else "WARNING"
     )
-    return _write_item(
-        stage="bom_generation",
-        component_id=bom.design_id,
-        pdf_path="N/A",
+    return enqueue_for_review(
+        bom,
+        GateStage.BOM,
+        bom.design_id,
+        config,
         severity=severity,
-        verdict="REVIEW_REQUIRED",
         flags=bom.review_flags,
-        config=config,
     )
+
+
+def get_review_item(
+    design_id: str,
+    stage: GateStage | str,
+    config: Config,
+) -> Optional[ReviewQueueItem]:
+    """Fetch the newest review queue item for a design_id and gate stage.
+
+    Args:
+        design_id: Design id used as component_id at enqueue.
+        stage: Review-gated stage.
+        config: Application configuration with queue database path.
+
+    Returns:
+        Newest matching ReviewQueueItem, or None if the design was never queued.
+    """
+    db_path = _get_db_path(config)
+    if not db_path.exists():
+        return None
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM review_queue
+            WHERE component_id = ? AND stage = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (design_id, _stage_value(stage)),
+        )
+        row = cursor.fetchone()
+        return _row_to_item(row) if row is not None else None
+    finally:
+        conn.close()
+
+
+def get_bom_review_item(design_id: str, config: Config) -> Optional[ReviewQueueItem]:
+    """Fetch the newest bom_generation queue item for a design_id."""
+    return get_review_item(design_id, GateStage.BOM, config)
+
+
+def set_design_review_status(
+    design_id: str,
+    status: Literal["approved", "rejected"],
+    resolution_notes: str,
+    config: Config,
+    stage: GateStage | str = GateStage.BOM,
+) -> ReviewQueueItem:
+    """Mark a queued design APPROVED or REJECTED by design_id and stage.
+
+    Thin wrapper over update_status() (the existing item_id-level mechanism),
+    resolving the newest stage-specific item for the design first.
+
+    Raises:
+        ValueError: If no matching queue item exists for design_id and stage.
+    """
+    stage_value = _stage_value(stage)
+    item = get_review_item(design_id, stage_value, config)
+    if item is None:
+        raise ValueError(f"No {stage_value} review item found for design {design_id}")
+    return update_status(item.item_id, status, resolution_notes, config)
 
 
 def enqueue_nir(nir: NIR, config: Config) -> ReviewQueueItem:
@@ -260,14 +414,13 @@ def enqueue_nir(nir: NIR, config: Config) -> ReviewQueueItem:
         "CRITICAL" if nir.is_review_required() else "WARNING"
     )
     flags = [f"{flag.severity}: {flag.reason}" for flag in nir.review_flags]
-    return _write_item(
-        stage="nir_validation",
-        component_id=nir.design_id,
-        pdf_path="N/A",
+    return enqueue_for_review(
+        nir,
+        GateStage.NIR,
+        nir.design_id,
+        config,
         severity=severity,
-        verdict="REVIEW_REQUIRED",
         flags=flags,
-        config=config,
     )
 
 

@@ -1,6 +1,15 @@
 # Topology Layer, Constraint Nodes & Interval Solver — Design Notes
 
-**Status:** Implemented (schema + LDO/Buck instances + solver + pipeline wiring).
+**Status:** Schema + LDO/Buck instances + interval solver implemented and
+wired into `run_intent_pipeline()`. **Topology KG install is NOT wired** —
+`install_topologies()` is called only from its own unit tests
+(`tests/unit/knowledge_graph/test_topology_library.py`), not from any
+ingestion path, graph bootstrap, or pipeline. A production graph has zero
+`TOPOLOGY`/`FUNCTIONAL_BLOCK` nodes until something calls it explicitly.
+Even after that call, `query_graph()` cannot surface those nodes because
+`goal_mapper._START_NODE_TYPES` does not include `TOPOLOGY` (see §5 below).
+Corrected 2026-07-06 per `DOC_DRIFT_AUDIT.md` finding N3 — the original
+"pipeline wiring" claim in this line overstated the topology-install state.
 **Companion code:** `src/knowledge_graph/topology/`, `src/knowledge_graph/constraints/`,
 `src/intent/interval_solver.py`.
 
@@ -15,7 +24,7 @@ translation layer is needed.
 | Existing usage | Relationship to the new Topology nodes |
 |---|---|
 | `TopologyGuess` (`schemas/common.py`) | `TopologyGuess.name` IS a topology slug. A guess with `name="buck_converter"` resolves via `graph.get_node("topology:buck_converter")`. TopologyGuess stays what it is — a *classification result with confidence*; the KG node is the *definition* it points to. |
-| `goal_topology` / `goal_topologies` (`schemas/intent.py`) | Same slugs. `intent.goal_topology` resolves the same way. The interval solver already consumes `goal_topology` to select the dropout rule. |
+| `goal_topology` / `goal_topologies` (`schemas/intent.py`) | Same slugs. `intent.goal_topology` resolves the same way. The interval solver *reads* `goal_topology` to select the dropout rule (`src/intent/interval_solver.py`). **RESOLVED 2026-07-06** (`DOC_DRIFT_AUDIT.md` N4): `src/intent/topology_classifier.py` now populates this field in production via `parse_intent()`; proven end-to-end in `tests/unit/intent/test_topology_pipeline_integration.py`. |
 | `ElectricalConstraints.supply_topology` | **Not** a circuit topology (values like `"single_dc"` describe the supply arrangement). Deliberately NOT mapped to Topology nodes — different concept, same word. |
 | `topology_slugs` (`retrieval/planner.py`), `get_design_pattern(slug)` / SQL `topology_type` (`kb_client.py`) | Same slug vocabulary. The KB's `design_patterns.topology_type` column and the KG's `topology:<slug>` IDs are two views keyed by the same string. A future task can add a `kb_pattern_id` property to Topology nodes to make the join explicit. |
 | `axiom_loader.py` (loads axioms by topology slug) | Same slugs; axiom YAML files could later be attached as properties or GOVERNED_BY edges on Topology nodes. |

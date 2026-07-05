@@ -309,7 +309,10 @@ Two sources:
 1. P1 Phase 5 output: `PlacementConstraint` objects from datasheet layout sections
 2. IPC-2221 table extraction: trace width vs current tables → `RoutingRule` nodes
 
-`placement_extractor.py` (app notes):
+`src/knowledge_graph/ingestion/kg2_appnotes/prose_extractor.py` (app notes;
+this file was previously misnamed `placement_extractor.py` in this
+document — that filename never existed, corrected 2026-07-06 per
+`DOC_DRIFT_AUDIT.md` N13):
 - Receives plain text from prose sections of app notes
 - Extracts sentences containing: "place", "near", "away", "within", "avoid", "keepout", "route", "shortest"
 - Passes to Qwen2.5-7B with schema-enforced output → `PlacementConstraint` objects
@@ -327,33 +330,39 @@ python -m src.knowledge_graph.admin add-methodology \
 
 ### Query Engine Design
 
+> Corrected 2026-07-06 (`DOC_DRIFT_AUDIT.md` N10): there is no
+> `KGQueryEngine` class anywhere in `src/`. The query engine is a set of
+> plain functions in `src/knowledge_graph/query/`, with `query_graph()` as
+> the single public entry point (see `OPENFORGE_ARCHITECTURE.md` §11 and
+> `SYSTEM_WHITEBOX_TRACE.md` §7). The pseudocode below described the
+> *intended* design at the time; the actual module layout is:
+
 ```python
-class KGQueryEngine:
-    def query(self, intent: IntentDict) -> DesignSubgraph:
-        # Step 1: map goal string to start node
-        start_nodes = self._map_goal_to_nodes(intent.goal)
-        
-        # Step 2: load methodology and its active rule set
-        methodology = self.graph.get_node(f"design_methodology:{intent.design_methodology}")
-        active_rules = methodology.properties["active_rules"]
-        
-        # Step 3: BFS/DFS traversal
-        subgraph = self._traverse(
-            start=start_nodes,
-            edge_types=["requires", "uses", "has_property", "must_be_near", "requires_routing"],
-            max_depth=4,
-            min_confidence=0.60
-        )
-        
-        # Step 4: apply frequency filter
-        if intent.frequency:
-            subgraph = self._filter_by_frequency(subgraph, intent.frequency)
-        
-        # Step 5: apply methodology rule overlay
-        subgraph = self._overlay_methodology_rules(subgraph, active_rules)
-        
-        # Step 6: score paths
-        return self._score_and_rank(subgraph)
+# src/knowledge_graph/query/__init__.py
+def query_graph(intent: IntentDict, graph: KnowledgeGraph, config: Config) -> DesignSubgraph:
+    # Step 1: map goal string to start nodes — src/knowledge_graph/query/goal_mapper.py
+    start_nodes = goal_mapper.map_goal_to_nodes(intent.goal, graph)
+
+    # Step 2: load methodology node (KG-5) — active_constraint_types, not "active_rules"
+    methodology_node = graph.get_node(f"design_methodology:{intent.design_methodology.value}")
+
+    # Step 3: BFS traversal — src/knowledge_graph/query/traversal.py
+    path_confidences, traversed_edges = traversal.bfs_traverse(
+        start_nodes, graph, max_depth=config.kg_traversal_max_depth,
+        min_edge_confidence=config.kg_min_edge_confidence,
+    )
+
+    # Step 4: apply frequency filter (±20% of intent.frequency), inline in query/__init__.py
+    if intent.frequency is not None:
+        path_confidences = _apply_frequency_filter(path_confidences, intent.frequency, graph)
+
+    # Step 5: assemble DesignSubgraph, applying methodology filter —
+    # src/knowledge_graph/query/result_builder.py + methodology_filter.py
+    return result_builder.build_subgraph(
+        path_confidences, traversed_edges, graph, methodology_node,
+        design_methodology=intent.design_methodology.value,
+        query_depth=config.kg_traversal_max_depth,
+    )
 ```
 
 ### Graph Consistency Validation

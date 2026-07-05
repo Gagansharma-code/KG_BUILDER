@@ -1,8 +1,15 @@
-"""Multi-candidate BOM generation for the unified search controller.
+"""Multi-candidate BOM generation for a future search controller.
 
-Provides generate_bom_candidates() which returns a BOMLadder —
-a ranked list of up to 3 ValidatedBOM objects for the ASHA controller
-to evaluate against the structural verifier.
+Provides generate_bom_candidates() which returns a BOMLadder — a ranked
+list of up to 3 ValidatedBOM objects intended for an ASHA-style search
+controller to evaluate against the structural verifier.
+
+STATUS (2026-07-06): this module is implemented and gate-tested, but the
+ASHA controller that would call it does not exist (no search_controller.py
+in this repo) and it is not called from run_intent_pipeline() or run_e2e().
+Production BOM generation uses generate_bom() directly, single-candidate.
+See documents/architecture/PROJECT_CONTEXT.md §9 and
+documents/decisions/Search_controller_decision.md.
 
 The existing generate_bom() is called internally and unchanged.
 """
