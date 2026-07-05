@@ -16,6 +16,7 @@ import yaml
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.knowledge_graph.backends._schemas import KnowledgeGraphConfig
 from src.parsing.backends._schemas import ParsingConfig
 
 
@@ -132,6 +133,11 @@ class Config(BaseSettings):
         description="Pluggable parsing backend name selections",
     )
 
+    knowledge_graph: KnowledgeGraphConfig = Field(
+        default_factory=KnowledgeGraphConfig,
+        description="Pluggable knowledge graph storage backend selection",
+    )
+
     @field_validator("model_paths", mode="before")
     @classmethod
     def _resolve_model_paths(cls, v: Any) -> dict[str, Path]:
@@ -235,6 +241,7 @@ class Config(BaseSettings):
             "canonical_functions_path": "canonical_functions_path",
             "kicad_mcp_url": "kicad_mcp_url",
             "parsing": "parsing",
+            "knowledge_graph": "knowledge_graph",
         }
 
         for yaml_key, field_name in field_mapping.items():

@@ -18,6 +18,7 @@ Brief one-line description of each folder:
 - **brainstorming/** — Proposals under consideration. Not yet decided.
 - **parsing/** — Parser architecture, eval logs, and all Cursor implementation prompts.
 - **guides/** — Coding standards and patterns for implementers.
+- **archive/** — Superseded or completed planning docs (not current status).
 
 ## Key Living Documents
 

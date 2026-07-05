@@ -10,9 +10,9 @@
 
 | Field | Value |
 |-------|-------|
-| **Last updated** | 2026-06-26 |
-| **Updated by** | Stage 05 search/storage/deployment implementation |
-| **Current milestone** | Teams A–E gates implemented; **Stage 2 smoke-tested**; **Stage 3 retrieval + Stage 05 search/storage layer complete**; full E2E orchestrator + GPU eval deferred |
+| **Last updated** | 2026-07-05 |
+| **Updated by** | Doc archive cleanup; intent pipeline / E2E status corrected |
+| **Current milestone** | Teams A–E gates implemented; Stage 2 + retrieval wired in intent pipeline; E2E orchestrator (`run_e2e`) implemented; ASHA search controller + GPU eval deferred |
 | **Active work** | KB Tier 0 KiCad library ingestion complete; Tier 3 community pipeline deferred; Search controller: ASHA + SA polisher + beam search escalation complete |
 | **Repo root** | `open_forge/` (package: `openforge-pcb`) |
 | **Code root** | `src/` (canonical); legacy P1 prototype at `prototypes/p1-parser/` |
@@ -166,14 +166,12 @@ Read in this order when implementing:
 | Intent parser | `src/intent/parser.py`, `pipeline.py` | ✅ |
 | Methodology classifier | `src/intent/methodology_classifier.py` | ✅ |
 | Ambiguity detector | `src/intent/ambiguity_detector.py` | ✅ |
-| Requirement completion engine (Stage 2) | `src/completion/engine.py`, `axiom_loader.py`, `contradiction_checker.py` | 🟡 Smoke-tested |
+| Requirement completion engine (Stage 2) | `src/completion/engine.py`, `axiom_loader.py`, `contradiction_checker.py` | ✅ Wired in `intent/pipeline.py` |
 | Retrieval engine (Stage 3 + 05) | `src/retrieval/` | ✅ Gate pass |
 | BOM generator | `src/bom/generator.py`, `selector.py`, `validator.py` | ✅ |
 | Supplier cache | `src/bom/supplier_cache.py` | ✅ |
 
 **Stage 2 smoke test (2026-06-21):** Against Entry 001 Libbrecht-Hall prompt (`SCIENTIFIC_PROMPT_ANALYSIS_LOG.md` Entry 003), `run_completion_engine` correctly escalated `operating_environment` and `supply_voltage` dangerous assumptions to blocking `Ambiguity` entries and set `clarification_required=True`. Harness: `tests/completion/smoke_test_real_prompts.py` (12/12 PASS).
-
-**Known gap:** `ImprovedIntentDict` v2 schema and Stage 2 not yet wired into the main intent pipeline — see `documents/improvement_plan/01_INTENT_PARSING_SCHEMA.md`, `02_REQUIREMENT_COMPLETION_ENGINE.md`.
 
 **Retrieval engine (Stage 3 + Stage 05) — 2026-06-22:**
 
@@ -191,7 +189,9 @@ Read in this order when implementing:
 
 **Gate:** `pytest tests/retrieval/test_retrieval.py tests/db/test_schema.py` — 36/36 PASS (mocked DB, no live PostgreSQL).
 
-**Deferred:** Embedding ingestion pipeline (`INSERT INTO component_embeddings`), runtime Qwen3 model loading in `RetrievalEngine`, wiring retrieval into BOM/synthesis E2E flow. KG semantic search (`src/knowledge_graph/semantic_search.py`) remains separate MiniLM/FAISS stack.
+**Wired (2026-06-27):** Stage 2 and Stage 2.5 (`RetrievalEngine`) run inside `run_intent_pipeline()`; `generate_bom()` accepts `retrieval_result`.
+
+**Deferred:** Runtime Qwen3 model loading in `RetrievalEngine`; retrieval not yet consumed by synthesis/E2E beyond BOM generation. KG semantic search (`src/knowledge_graph/semantic_search.py`) remains separate MiniLM/FAISS stack.
 
 **Guide:** `documents/guides/stage_5_Search_storage.md` · `documents/guides/atge_3_RetrievalKB_Engine.md`
 
@@ -367,20 +367,17 @@ Natural Language Prompt
 
 ### Blockers
 
-1. **Full E2E orchestrator** — individual team pipelines exist; no single `prompt → files` entry point yet
+1. **Search controller (ASHA)** — TPE / SA / beam search implemented but not wired; `search_controller.py` missing
 2. **GPU lab verification** — Phase 2 VLM and Phase 3 LLM paths need GPU run with weights
 3. **Grid-level golden GT** — required for Phase 2 cell/merged-cell accuracy exit gate
-4. **Intent schema gap** — flat constraint strings block typed downstream reasoning (`improvement_plan/01`)
-5. **Embedding ingestion** — `component_embeddings` schema ready (4096-dim); no writer pipeline yet; ANN index helper not wired
-6. **Retrieval E2E wiring** — `RetrievalEngine` not yet connected to BOM/synthesis orchestrator
+4. **Modular parser E2E** — `parse_datasheet_modular` + `BackendRegistry` exist; E2E still uses legacy `parse_datasheet`
 
 ### Immediate next steps (ordered)
 
-1. Wire top-level E2E orchestrator across Team C (intent → completion → retrieval) → A → B → D → E pipelines
-2. Build embedding ingestion pipeline to populate `component_embeddings` with Qwen3-Embedding-8B
-3. Run GPU lab eval: Phase 2 VLM + Phase 3 LLM + Qwen3 embedding model with golden corpus
-4. Annotate grid-level golden GT for 5 components
-5. Implement improvement-plan intent schema (`01_INTENT_PARSING_SCHEMA.md`)
+1. Implement and wire ASHA search controller (`generate_bom_candidates` → verify → SA / beam)
+2. Run GPU lab eval: Phase 2 VLM + Phase 3 LLM + Qwen3 embedding model with golden corpus
+3. Annotate grid-level golden GT for 5 components
+4. Switch E2E orchestrator to modular parser when GPU backends are validated
 
 ---
 
