@@ -9,8 +9,13 @@ from src.bom.generator import generate_bom
 from src.bom.validator import validate_bom
 from src.completion import CompletionEngineError, run_completion_engine
 from src.config import Config
+from src.intent.interval_solver import (
+    ConstraintConflictError,
+    assert_interval_feasible,
+)
 from src.intent.parser import parse_intent
 from src.knowledge_graph import query_graph
+from src.knowledge_graph.constraints import persist_design_constraints
 from src.knowledge_graph.graph import KnowledgeGraph
 from src.retrieval import RetrievalEngine
 from src.retrieval.schemas import RetrievalResult
@@ -104,9 +109,32 @@ def run_intent_pipeline(
         logger.info("Stage 2.5: running KB retrieval")
         retrieval_result = _run_retrieval(intent, config)
 
+        # Stage 2.75: deductive feasibility pre-check (interval solver).
+        # Fails loudly — an infeasible constraint set halts the pipeline
+        # here with named conflicts instead of failing slowly downstream.
+        try:
+            assert_interval_feasible(intent)
+        except ConstraintConflictError as exc:
+            logger.error("Stage 2.75: infeasible constraints — halting: %s", exc)
+            conflict_bom = _empty_bom(intent)
+            conflict_bom = conflict_bom.model_copy(
+                update={
+                    "review_flags": [
+                        f"CRITICAL: {c.constraint_a} vs {c.constraint_b} — {c.description}"
+                        for c in exc.conflicts
+                    ],
+                }
+            )
+            persist_design_constraints(intent, conflict_bom.design_id, graph)
+            return intent, conflict_bom, retrieval_result
+
         subgraph = query_graph(intent, graph, config)
         bom = generate_bom(subgraph, intent, config, retrieval_result=retrieval_result)
         validated_bom = validate_bom(bom, config)
+
+        # Persist this run's constraints as DESIGN_CONSTRAINT nodes —
+        # the provenance audit trail, scoped by design_id, never discarded.
+        persist_design_constraints(intent, validated_bom.design_id, graph)
 
         if validated_bom.review_required:
             enqueue_bom(validated_bom, config)

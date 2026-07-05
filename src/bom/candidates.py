@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from pydantic import BaseModel, Field
 
 from src.bom.generator import generate_bom
+from src.intent.interval_solver import assert_interval_feasible
 from src.schemas.intent import BOMEntry, IntentDict, ValidatedBOM
 
 if TYPE_CHECKING:
@@ -198,7 +199,15 @@ def generate_bom_candidates(
 
     Returns:
         BOMLadder with 1 to max_candidates ValidatedBOM objects.
+
+    Raises:
+        ConstraintConflictError: If the interval solver proves the intent's
+        constraint set infeasible — candidates must not be sampled from an
+        algebraically impossible design (fail fast, not slowly via search).
     """
+    # Deductive feasibility pre-check before any candidate sampling.
+    assert_interval_feasible(intent)
+
     ladder_id = str(uuid.uuid4())
     max_candidates = max(1, min(max_candidates, 3))
 

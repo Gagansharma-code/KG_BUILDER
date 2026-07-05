@@ -58,6 +58,9 @@ class KGNodeType(str, Enum):
     NET_TYPE = "net_type"  # Power, ground, signal classifications
     STANDARD = "standard"  # IPC, JEDEC, IEEE standards
     PIN = "pin"  # Individual pin entities
+    TOPOLOGY = "topology"  # Layer 4: formal circuit pattern (ldo, buck_converter)
+    FUNCTIONAL_BLOCK = "functional_block"  # Layer 4: block within a topology
+    DESIGN_CONSTRAINT = "design_constraint"  # Layer 5: per-design-run constraint, design_id-scoped
 
 
 class KGRelation(str, Enum):
@@ -80,6 +83,8 @@ class KGRelation(str, Enum):
     REPLACES = "replaces"  # Substitution relationship
     INCOMPATIBLE_WITH = "incompatible_with"  # Cannot be used together
     OVERRIDES = "overrides"  # Rule/method supersedes another
+    IMPLEMENTS = "implements"  # ComponentType/Instance realizes a Topology
+    CONSTRAINED_BY = "constrained_by"  # Design element subject to a DesignConstraint
 
 
 class KGNode(BaseModel):
@@ -119,6 +124,13 @@ class KGNode(BaseModel):
         description="Method used to extract/create this node"
     )
     created_at: str = Field(description="ISO 8601 timestamp of node creation")
+    design_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Design run this node is scoped to (DESIGN_CONSTRAINT nodes only; "
+            "None for global knowledge). Plain scalar per NEO4J_BACKEND_DESIGN.md §1.1."
+        ),
+    )
 
     def get_confidence_from_method(self) -> float:
         """Return the canonical confidence score for this node's extraction method.
