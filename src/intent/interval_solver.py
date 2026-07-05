@@ -45,8 +45,16 @@ logger = logging.getLogger(__name__)
 # Conservative default LDO dropout when the intent does not specify one.
 DEFAULT_LDO_DROPOUT_V = 0.3
 
-# Topology slugs the voltage/dropout chain rule applies to.
-_DROPOUT_TOPOLOGIES = {"ldo"}
+# Topology slugs for Rule 1 (voltage/dropout chain). Each set is explicit so
+# future topologies do not silently inherit a default treatment.
+# Slugs match goal_topology vocabulary elsewhere (parser, TOPOLOGY_TEMPLATES,
+# confidence_scorer, retrieval topology_slugs).
+_DROPOUT_TOPOLOGIES = frozenset({"ldo"})
+_BUCK_LIKE_TOPOLOGIES = frozenset({"buck_converter"})
+# Step-up / step-up-down: V_in vs V_out is not constrained by this rule.
+# boost_converter steps up (V_out > V_in is normal); buck_boost can operate
+# with V_in above, below, or equal to V_out — skip rather than invert.
+_VOLTAGE_CHAIN_SKIP_TOPOLOGIES = frozenset({"boost_converter", "buck_boost"})
 
 
 class ConstraintConflictError(Exception):
@@ -103,15 +111,16 @@ def _check_voltage_dropout_chain(
     if output_v is None:
         return
 
-    # Dropout: applies to linear-regulator-like topologies. Without a
-    # dropout spec in the intent, use a conservative default for LDO goals.
     topology = getattr(intent, "goal_topology", None)
+    if topology in _VOLTAGE_CHAIN_SKIP_TOPOLOGIES:
+        return
     if topology in _DROPOUT_TOPOLOGIES:
         dropout_v = DEFAULT_LDO_DROPOUT_V
-    else:
-        # Non-LDO / unknown topology: still require V_in >= V_out for any
-        # non-boosting supply chain, with zero dropout assumed.
+    elif topology in _BUCK_LIKE_TOPOLOGIES:
         dropout_v = 0.0
+    else:
+        # Unknown or unlisted topology: Rule 1 does not apply.
+        return
 
     required_min_input = round(output_v + dropout_v, 6)
     result.derived["min_input_voltage_v"] = required_min_input

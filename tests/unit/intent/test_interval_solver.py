@@ -60,7 +60,7 @@ class TestVoltageDropoutChain:
         assert "3.5" in conflict.constraint_a
         assert "3.6" in conflict.constraint_b
 
-    def test_non_ldo_topology_uses_zero_dropout(self) -> None:
+    def test_buck_topology_uses_zero_dropout(self) -> None:
         intent = _intent(
             goal_topology="buck_converter",
             electrical=ElectricalConstraints(
@@ -70,6 +70,53 @@ class TestVoltageDropoutChain:
         )
         result = check_interval_constraints(intent)
         assert result.feasible  # 3.4 >= 3.3 + 0.0
+
+    def test_buck_topology_conflicts_when_supply_too_low(self) -> None:
+        intent = _intent(
+            goal_topology="buck_converter",
+            electrical=ElectricalConstraints(
+                supply_voltage=VoltageSpec(max_v=3.0, raw_text="3.0V"),
+                output_voltage_compliance=VoltageSpec(max_v=3.3, raw_text="3.3V"),
+            ),
+        )
+        result = check_interval_constraints(intent)
+        assert not result.feasible
+        assert result.conflicts[0].severity == "CRITICAL"
+
+    def test_boost_topology_skips_voltage_chain_when_vout_exceeds_vin(self) -> None:
+        """Boost legitimately steps up: V_in below V_out must not CRITICAL-conflict.
+
+        Pre-fix, non-LDO topologies still ran V_in >= V_out; 3.3V supply vs 5V
+        output would falsely conflict. Buck-like topology with the same numbers
+        still conflicts (see test_buck_topology_conflicts_when_supply_too_low).
+        """
+        supply_max_v = 3.3
+        output_max_v = 5.0
+        assert supply_max_v < output_max_v  # guard: must step up, not equal
+
+        intent = _intent(
+            goal_topology="boost_converter",
+            electrical=ElectricalConstraints(
+                supply_voltage=VoltageSpec(max_v=supply_max_v, raw_text="3.3V"),
+                output_voltage_compliance=VoltageSpec(max_v=output_max_v, raw_text="5V"),
+            ),
+        )
+        result = check_interval_constraints(intent)
+        assert result.feasible
+        assert not any(c.severity == "CRITICAL" for c in result.conflicts)
+        assert "min_input_voltage_v" not in result.derived
+
+    def test_buck_boost_topology_skips_voltage_chain(self) -> None:
+        intent = _intent(
+            goal_topology="buck_boost",
+            electrical=ElectricalConstraints(
+                supply_voltage=VoltageSpec(max_v=3.3, raw_text="3.3V"),
+                output_voltage_compliance=VoltageSpec(max_v=5.0, raw_text="5V"),
+            ),
+        )
+        result = check_interval_constraints(intent)
+        assert result.feasible
+        assert "min_input_voltage_v" not in result.derived
 
     def test_missing_specs_skip_rule(self) -> None:
         assert check_interval_constraints(_intent()).feasible
@@ -137,13 +184,15 @@ class TestAssertInterfaceFeasible:
 class TestPipelineWiring:
     """Solver runs in run_intent_pipeline after Stage 2.5, before generate_bom."""
 
+    @patch("src.intent.pipeline.enqueue_bom")
     @patch("src.intent.pipeline.persist_design_constraints")
     @patch("src.intent.pipeline.generate_bom")
     @patch("src.intent.pipeline._run_retrieval", return_value=None)
     @patch("src.intent.pipeline._run_stage2", side_effect=lambda i, c: i)
     @patch("src.intent.pipeline.parse_intent")
     def test_conflict_halts_before_generate_bom(
-        self, mock_parse, mock_stage2, mock_retrieval, mock_generate, mock_persist
+        self, mock_parse, mock_stage2, mock_retrieval, mock_generate, mock_persist,
+        mock_enqueue,
     ) -> None:
         from src.intent.pipeline import run_intent_pipeline
 
@@ -153,12 +202,20 @@ class TestPipelineWiring:
                 output_voltage_compliance=VoltageSpec(max_v=3.3, raw_text="3.3V"),
             )
         )
-        intent, bom, _ = run_intent_pipeline("prompt", MagicMock(), MagicMock())
+        config = MagicMock()
+        intent, bom, _ = run_intent_pipeline("prompt", MagicMock(), config)
 
         mock_generate.assert_not_called()
         assert bom.review_required is True
         assert any("CRITICAL" in flag for flag in bom.review_flags)
         mock_persist.assert_called_once()  # constraints persisted even on halt
+        mock_enqueue.assert_called_once()
+        enqueued_bom, enqueued_config = mock_enqueue.call_args[0]
+        assert enqueued_bom is bom
+        assert enqueued_config is config
+        assert enqueued_bom.review_required is True
+        assert any("CRITICAL" in flag for flag in enqueued_bom.review_flags)
+        assert "3.5" in enqueued_bom.review_flags[0]
 
     @patch("src.intent.pipeline.enqueue_bom")
     @patch("src.intent.pipeline.persist_design_constraints")

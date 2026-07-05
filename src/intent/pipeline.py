@@ -126,6 +126,7 @@ def run_intent_pipeline(
                 }
             )
             persist_design_constraints(intent, conflict_bom.design_id, graph)
+            enqueue_bom(conflict_bom, config)
             return intent, conflict_bom, retrieval_result
 
         subgraph = query_graph(intent, graph, config)
