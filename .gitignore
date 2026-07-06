@@ -28,3 +28,10 @@ data/graph/*
 
 # Local API credentials (DigiKey, Nexar, etc.) — use secrets.toml.example as template
 secrets.toml
+
+# KG snapshots (scripts/kg_snapshot.py): the .dump/.graphml data files can be
+# large binaries and shouldn't bloat the repo, but SNAPSHOT_LOG.md is small,
+# text, and valuable history on its own even without the underlying files —
+# so it stays tracked while everything else in the folder is ignored.
+kg_snapshots/*.dump
+kg_snapshots/*.graphml

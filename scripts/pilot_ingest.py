@@ -36,6 +36,7 @@ from src.knowledge_base.scraper.pdf_downloader import (
     resolve_pdf_urls,
 )
 from src.knowledge_graph import KnowledgeGraph
+from src.knowledge_graph.backends import GraphBackend, GraphBackendRegistry
 from src.knowledge_graph.importers.p1_importer import import_datasheet
 from src.review.queue import enqueue
 from src.schemas.datasheet import ComponentDatasheet
@@ -78,10 +79,25 @@ def _severity_outcome(
     return "imported_clean", validation_result
 
 
+def _get_graph(config: Config) -> GraphBackend:
+    """Return the live graph for the active backend (config.knowledge_graph.backend).
+
+    Mirrors scripts/kg_snapshot.py's _get_graph: for networkx, the GraphML
+    file at config.graph_path *is* the live database, loaded if present;
+    for neo4j, the registry's backend instance is already connected to the
+    live, self-hosted database.
+    """
+    if config.knowledge_graph.backend == "networkx":
+        if config.graph_path.exists():
+            return KnowledgeGraph.load(config.graph_path)
+        return KnowledgeGraph()
+    return GraphBackendRegistry(config).get_graph_backend()
+
+
 def ingest_one(
     mpn: str,
     fetch_result: Optional[FetchResult],
-    graph: KnowledgeGraph,
+    graph: GraphBackend,
     config: Config,
 ) -> dict:
     """Run download -> parse -> severity gate -> import for a single MPN.
@@ -172,10 +188,7 @@ def run_pilot(mpns: list[str], config: Config, report_path: Path) -> dict:
     """Run the pilot batch over mpns and write/return the summary report."""
     logger.info(f"Starting pilot ingestion for {len(mpns)} MPNs")
 
-    if config.graph_path.exists():
-        graph = KnowledgeGraph.load(config.graph_path)
-    else:
-        graph = KnowledgeGraph()
+    graph = _get_graph(config)
     stats_before = graph.stats()
 
     nexar = NexarAdapter()

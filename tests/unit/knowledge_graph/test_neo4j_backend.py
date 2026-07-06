@@ -7,7 +7,7 @@ Neo4jGraphBackend without requiring a live Neo4j server.
 from __future__ import annotations
 
 import sys
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from unittest.mock import MagicMock
 
 import pytest
@@ -171,8 +171,8 @@ def test_add_edge_checks_nodes_deletes_existing_and_creates_relationship(
     session.execute_write.side_effect = lambda callback, edge: callback(MagicMock(), edge)
     tx = MagicMock()
     tx.run.side_effect = [
-        [SimpleNamespace(data=lambda: {"found": 1})],
-        [SimpleNamespace(data=lambda: {"found": 1})],
+        [{"found": 1}],
+        [{"found": 1}],
         MagicMock(),
         MagicMock(),
     ]
@@ -192,7 +192,7 @@ def test_add_edge_checks_nodes_deletes_existing_and_creates_relationship(
 def test_add_edge_raises_node_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     backend, _, session = _backend(monkeypatch)
     tx = MagicMock()
-    tx.run.return_value = [SimpleNamespace(data=lambda: {"found": 0})]
+    tx.run.return_value = [{"found": 0}]
     session.execute_write.side_effect = lambda callback, edge: callback(tx, edge)
 
     with pytest.raises(NodeNotFoundError, match="a:x"):
@@ -213,7 +213,7 @@ def test_get_node_returns_model_or_none(monkeypatch: pytest.MonkeyPatch) -> None
         "created_at": "2026-01-01T00:00:00Z",
         "design_id": None,
     }
-    session.run.return_value = [SimpleNamespace(data=lambda: {"n": raw_node})]
+    session.run.return_value = [{"n": raw_node}]
 
     node = backend.get_node("component_type:regulator")
 
@@ -236,13 +236,11 @@ def test_read_methods_emit_documented_cypher(monkeypatch: pytest.MonkeyPatch) ->
         "layer": 2,
     }
     session.run.return_value = [
-        SimpleNamespace(
-            data=lambda: {
-                "source_id": "a:x",
-                "r": raw_edge,
-                "target_id": "b:y",
-            }
-        )
+        {
+            "source_id": "a:x",
+            "r": raw_edge,
+            "target_id": "b:y",
+        }
     ]
 
     assert backend.get_edges_from("a:x", KGRelation.REQUIRES, 0.5) == [
@@ -281,18 +279,18 @@ def test_get_neighbors_find_and_exists_methods(
         "created_at": "2026-01-01T00:00:00Z",
         "design_id": None,
     }
-    session.run.return_value = [SimpleNamespace(data=lambda: {"t": raw_node})]
+    session.run.return_value = [{"t": raw_node}]
 
     neighbors = backend.get_neighbors("a:x", min_confidence=0.2)
 
     assert [node.id for node in neighbors] == ["b:y"]
     assert "RETURN t" in session.run.call_args.args[0]
 
-    session.run.return_value = [SimpleNamespace(data=lambda: {"exists": True})]
+    session.run.return_value = [{"exists": True}]
     assert backend.node_exists("b:y") is True
     assert "RETURN count(n) > 0 AS exists" in session.run.call_args.args[0]
 
-    session.run.return_value = [SimpleNamespace(data=lambda: {"n": raw_node})]
+    session.run.return_value = [{"n": raw_node}]
     assert [node.id for node in backend.find_nodes_by_type(KGNodeType.COMPONENT_TYPE)] == [
         "b:y"
     ]
@@ -307,8 +305,8 @@ def test_stats_assembles_total_and_layer_counts(
 ) -> None:
     backend, _, session = _backend(monkeypatch)
     session.run.side_effect = [
-        [SimpleNamespace(data=lambda: {"layer": 2, "node_count": 3})],
-        [SimpleNamespace(data=lambda: {"layer": 2, "edge_count": 4})],
+        [{"layer": 2, "node_count": 3}],
+        [{"layer": 2, "edge_count": 4}],
     ]
 
     stats = backend.stats()

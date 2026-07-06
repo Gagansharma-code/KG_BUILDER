@@ -503,8 +503,15 @@ def _edge_from_record(data: dict[str, Any]) -> KGEdge:
 
 
 def _record_data(record: Any) -> dict[str, Any]:
-    if hasattr(record, "data"):
-        return record.data()
+    """Map record keys to their raw values (Node/Relationship/scalar).
+
+    Deliberately not record.data(): the driver's .data() flattens
+    Relationship values into a (start_props, type, end_props) tuple,
+    discarding the relationship's own properties, which breaks
+    _edge_from_record's dict(data["r"]) call. dict(record) preserves the
+    raw Node/Relationship objects, which themselves support dict() to
+    yield their properties correctly.
+    """
     return dict(record)
 
 

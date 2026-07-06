@@ -48,6 +48,7 @@ def mock_config(tmp_path) -> Config:
     config = MagicMock(spec=Config)
     config.graph_path = tmp_path / "graph.graphml"
     config.review_queue_path = tmp_path / "review_queue.db"
+    config.knowledge_graph = MagicMock(backend="networkx")
     return config
 
 
@@ -320,3 +321,36 @@ class TestReportCoverage:
         }
         # NO_PDF and PARSE_FAIL both fall outside the 3 canonical outcomes.
         assert report["other_failures"] == 2
+
+
+class TestGetGraphRespectsBackend:
+    """_get_graph must honor config.knowledge_graph.backend, not hardcode networkx."""
+
+    def test_networkx_backend_loads_existing_graphml(self, tmp_path):
+        from src.knowledge_graph import KnowledgeGraph
+        from scripts.pilot_ingest import _get_graph
+
+        config = MagicMock(spec=Config)
+        config.graph_path = tmp_path / "graph.graphml"
+        config.knowledge_graph = MagicMock(backend="networkx")
+
+        graph = _get_graph(config)
+
+        assert isinstance(graph, KnowledgeGraph)
+
+    @patch(f"{MODULE}.GraphBackendRegistry")
+    def test_neo4j_backend_uses_registry_not_hardcoded_networkx(
+        self, mock_registry, tmp_path
+    ):
+        from scripts.pilot_ingest import _get_graph
+
+        config = MagicMock(spec=Config)
+        config.graph_path = tmp_path / "graph.graphml"
+        config.knowledge_graph = MagicMock(backend="neo4j")
+        sentinel_backend = MagicMock()
+        mock_registry.return_value.get_graph_backend.return_value = sentinel_backend
+
+        graph = _get_graph(config)
+
+        mock_registry.assert_called_once_with(config)
+        assert graph is sentinel_backend
