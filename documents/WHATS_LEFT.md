@@ -83,6 +83,11 @@ These improve accuracy. System runs without them but evaluation is incomplete.
 | 4.2 | Few-shot examples for Phase 3 extraction prompts | ⬜ Not started | See brainstorming/FEW_SHOT_PROMPT_ANALYSIS.md |
 | 4.3 | Few-shot examples for Phase 5 layout extraction prompts | ⬜ Not started | Same doc |
 | 4.4 | Pin normalizer LLM fallback few-shot examples | ⬜ Not started | Same doc |
+| 4.5 | Calibrate Layout review-gate confidence threshold | ⬜ Not started | `src/orchestrator.py` uses `confidence_thresholds["layout_constraint"]` with fallback `0.85` as an unvalidated placeholder. Existing layout-specific precedent is only Phase 5 extraction acceptance at `0.65`; the `0.85` fallback is not grounded in layout data and must be tuned against real layout-review outcomes before being treated as authoritative. |
+
+### Review-gate maintenance notes
+
+- `review_queue.bom_json` and `review_queue.artifact_json` intentionally duplicate BOM snapshots for backward compatibility. `artifact_json` is the generic, authoritative multi-stage resume snapshot if the two fields ever disagree; `bom_json` is a BOM-only compatibility mirror kept for older queue rows and callers. Treat this as minor tech debt to remove after old queues no longer need migration support.
 
 ---
 
@@ -104,6 +109,7 @@ Record every finished task here with date.
 
 | Date | Task | Notes |
 |------|------|-------|
+| 2026-07-06 | Multi-stage blocking review gates for BOM/Netlist/Layout/NIR | Generalized the review queue to stage-aware `artifact_json` snapshots and stage-aware approval/resume. Layout threshold `0.85` is explicitly tracked as an unvalidated placeholder pending real layout-review calibration; `bom_json` remains a compatibility mirror, with `artifact_json` authoritative. |
 | 2026-07-06 | Topology classification wired into Stage 1 (task 3.9, closes DOC_DRIFT_AUDIT.md N4) | `src/intent/topology_classifier.py`; `intent.goal_topology` now actually populated in production, proven by real-pipeline integration tests |
 | 2026-07-06 | Blocking human-review gate at orchestrator level | `src/orchestrator.py` `run_e2e()` halts (`status="pending_review"`) instead of warning-and-proceeding; `bom_json` snapshot column on `review_queue`; `approve-design`/`reject-design` CLI; `resume_after_review()` resumes from the persisted snapshot (never regenerates). Closed DOC_DRIFT_AUDIT.md finding N7. |
 | 2026-07-06 | Stage 2.75 interval-constraint solver | `src/intent/interval_solver.py` — voltage/dropout chain + thermal budget rules; wired into `run_intent_pipeline()` before `query_graph()` and into `generate_bom_candidates()`; fails loudly with named conflicts. |
@@ -140,6 +146,7 @@ Format: `YYYY-MM-DD | action | what changed | why`
 
 | Date | Action | What | Why |
 |------|--------|------|-----|
+| 2026-07-06 | ADDED | Layout gate threshold calibration task and review-queue snapshot duplication note | Prevent `confidence_thresholds["layout_constraint"] = 0.85` and `bom_json`/`artifact_json` duplication from being mistaken for validated, undocumented behavior |
 | 2026-07-06 | CORRECTED | Tasks 3.3/3.4/3.5 status vs. live code | DOC_DRIFT_AUDIT.md N12–N14: Nexar scraper and Tier 0 parser were implemented but marked "Not started"; prose extractor was done but referenced under a filename (`placement_extractor.py`) that never existed |
 | 2026-07-06 | ADDED | Tasks 3.7–3.10 (Tier 0 KG writer, topology install/wiring, goal_topology population) | Split out of the drift audit's topology-wiring and Tier 0 findings (N4, N3) |
 | 2026-07-06 | COMPLETED | Blocking review gate, Stage 2.75 interval solver, Topology/Constraint schema, GraphBackend abstraction | Landed since the 2026-06-27 update; this file had not been synced (DOC_DRIFT_AUDIT.md pattern #3, WHATS_LEFT vs PROJECT_CONTEXT desync) |

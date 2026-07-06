@@ -180,6 +180,9 @@ def _netlist_review_flags(schematic: SchematicGraph) -> list[str]:
 
 
 def _layout_review_flags(layout: LayoutSpec, config: Config) -> list[str]:
+    # Placeholder pending real layout-review data: 0.85 has weak precedent
+    # from BOM confidence gates, but no validated layout-specific calibration.
+    # WHATS_LEFT.md tracks calibration as minor follow-up work.
     threshold = getattr(config, "confidence_thresholds", {}).get(
         "layout_constraint", 0.85
     )

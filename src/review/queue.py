@@ -114,6 +114,11 @@ def _row_to_item(row: tuple) -> ReviewQueueItem:
         resolved_at=row[9],
         resolution_notes=row[10],
         bom_json=row[11] if len(row) > 11 else None,
+        # Deliberate compatibility duplication: old BOM review rows only had
+        # bom_json, while multi-stage gates use artifact_json. artifact_json is
+        # authoritative when both fields exist and differ; bom_json is a
+        # backward-compatible BOM-only mirror tracked as minor tech debt in
+        # WHATS_LEFT.md.
         artifact_json=(
             row[12] if len(row) > 12 and row[12] is not None
             else row[11] if len(row) > 11 else None
@@ -308,6 +313,8 @@ def enqueue_for_review(
         else "WARNING"
     )
     artifact_json = _snapshot_json(artifact, stage, resume_context)
+    # BOM keeps a redundant bom_json mirror for pre-artifact_json consumers.
+    # artifact_json is the generic resume snapshot and remains authoritative.
     bom_json = artifact.model_dump_json() if stage_value == GateStage.BOM.value else None
 
     return _write_item(
