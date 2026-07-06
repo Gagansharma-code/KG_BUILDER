@@ -22,7 +22,8 @@ confidence_thresholds:
 # Review queue path
 review_queue_path: "output/review_queue.json"
 
-# Neo4j knowledge graph connection
+# Legacy Neo4j knowledge graph connection alias.
+# New backend settings live under knowledge_graph.neo4j_uri below.
 neo4j_uri: "bolt://localhost:7687"
 
 # Knowledge graph file path
@@ -74,3 +75,12 @@ parsing:
     device: "cpu"
     max_tokens: 1024
   phase2_vector_confidence_min: 0.80
+
+# Pluggable knowledge graph backend selection.
+# Default remains NetworkX; switch backend to "neo4j" for a local self-hosted Neo4j.
+knowledge_graph:
+  backend: "networkx"
+  neo4j_uri: "bolt://localhost:7687"
+  neo4j_username: "neo4j"
+  neo4j_password: "openforge"
+  neo4j_database: null

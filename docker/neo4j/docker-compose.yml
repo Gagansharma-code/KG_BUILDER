@@ -1,0 +1,29 @@
+services:
+  neo4j:
+    image: neo4j:5.26.27-community
+    container_name: openforge-neo4j
+    restart: unless-stopped
+    ports:
+      - "${OPENFORGE_NEO4J_HTTP_PORT:-7474}:7474"
+      - "${OPENFORGE_NEO4J_BOLT_PORT:-7687}:7687"
+    environment:
+      NEO4J_AUTH: "${OPENFORGE_NEO4J_USER:-neo4j}/${OPENFORGE_NEO4J_PASSWORD:-openforge}"
+      NEO4J_server_memory_heap_initial__size: "${OPENFORGE_NEO4J_HEAP_INITIAL:-512m}"
+      NEO4J_server_memory_heap_max__size: "${OPENFORGE_NEO4J_HEAP_MAX:-1G}"
+      NEO4J_server_default__listen__address: "0.0.0.0"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "cypher-shell -u $${OPENFORGE_NEO4J_USER:-neo4j} -p $${OPENFORGE_NEO4J_PASSWORD:-openforge} 'RETURN 1'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  neo4j_data:
+  neo4j_logs:

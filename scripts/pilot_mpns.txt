@@ -1,0 +1,33 @@
+# Pilot ingestion MPN list (10-20 parts, easy categories only).
+# One MPN per line. Blank lines and lines starting with '#' are ignored;
+# trailing '# ...' comments are stripped.
+#
+# Entries below are pulled from parts already referenced elsewhere in this
+# repo (golden corpus ground truth files, schema docstring examples, adapter
+# examples) so the pilot exercises MPNs the pipeline has already seen
+# mentioned, not arbitrary unknowns.
+
+# --- Op-amps ---
+LM358
+LM324
+TLV6001
+
+# --- LDOs / linear regulators ---
+TLV755P
+LM317
+LM7805
+
+# --- Buck / buck-boost converters ---
+TPS62933
+TPS62203
+TPS5430
+TPS62932
+TPS63020
+
+# --- Logic gates ---
+SN74LVC1G04
+SN74AHCT1G125
+
+# --- Diodes ---
+1N4148
+1N5819  # PLACEHOLDER - no second diode MPN found referenced elsewhere in repo; common Schottky diode added for category coverage

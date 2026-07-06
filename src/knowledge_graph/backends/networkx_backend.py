@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+from src.knowledge_graph.backends._graphml_io import read_graphml, write_graphml
 from src.knowledge_graph.backends._interfaces import GraphBackend, NodeNotFoundError
 from src.schemas.kg import KGEdge, KGNode, KGNodeType
 
@@ -279,29 +280,17 @@ class NetworkXGraphBackend(GraphBackend):
         Example:
             >>> kg.save(Path("output/graph.graphml"))
         """
-        import networkx as nx
-
-        # Create a copy with JSON-serialized data for GraphML compatibility
-        export_graph = nx.DiGraph()
-
-        for node_id in self._graph.nodes:
-            node_data = self._graph.nodes[node_id].get("data")
-            if node_data:
-                # Serialize KGNode to JSON string
-                json_data = node_data.model_dump_json()
-                export_graph.add_node(node_id, data=json_data)
-
-        for u, v, edge_data in self._graph.edges(data=True):
-            edge = edge_data.get("data")
-            if edge:
-                # Serialize KGEdge to JSON string
-                json_data = edge.model_dump_json()
-                export_graph.add_edge(u, v, data=json_data)
-
-        # Ensure parent directory exists
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        nx.write_graphml(export_graph, str(path))
+        nodes = [
+            self._graph.nodes[node_id].get("data")
+            for node_id in self._graph.nodes
+            if self._graph.nodes[node_id].get("data")
+        ]
+        edges = [
+            edge_data.get("data")
+            for _, _, edge_data in self._graph.edges(data=True)
+            if edge_data.get("data")
+        ]
+        write_graphml(path, nodes, edges)
         logger.info(f"Saved graph with {len(self._graph.nodes)} nodes to {path}")
 
     def load_into(self, path: Path) -> None:
@@ -315,31 +304,11 @@ class NetworkXGraphBackend(GraphBackend):
         Raises:
             FileNotFoundError: If path does not exist
         """
-        import networkx as nx
-
-        if not path.exists():
-            raise FileNotFoundError(f"Graph file not found: {path}")
-
-        # Load GraphML
-        loaded_graph = nx.read_graphml(str(path))
-
-        # Reconstruct nodes
-        for node_id in loaded_graph.nodes:
-            json_str = loaded_graph.nodes[node_id].get("data", "{}")
-            try:
-                node = KGNode.model_validate_json(json_str)
-                self._graph.add_node(node_id, data=node)
-            except Exception as e:
-                logger.warning(f"Failed to parse node {node_id}: {e}")
-
-        # Reconstruct edges
-        for u, v, edge_data in loaded_graph.edges(data=True):
-            json_str = edge_data.get("data", "{}")
-            try:
-                edge = KGEdge.model_validate_json(json_str)
-                self._graph.add_edge(u, v, data=edge)
-            except Exception as e:
-                logger.warning(f"Failed to parse edge {u} -> {v}: {e}")
+        nodes, edges = read_graphml(path)
+        for node in nodes:
+            self._graph.add_node(node.id, data=node)
+        for edge in edges:
+            self._graph.add_edge(edge.source_id, edge.target_id, data=edge)
 
         logger.info(
             f"Loaded graph with {len(self._graph.nodes)} nodes "

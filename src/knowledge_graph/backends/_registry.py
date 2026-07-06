@@ -19,8 +19,9 @@ GRAPH_BACKEND_REGISTRY: dict[str, str] = {
     "networkx": (
         "src.knowledge_graph.backends.networkx_backend.NetworkXGraphBackend"
     ),
-    # "neo4j" is intentionally absent: see documents/architecture/
-    # NEO4J_BACKEND_DESIGN.md — design exists, implementation is a later task.
+    "neo4j": (
+        "src.knowledge_graph.backends.neo4j_backend.Neo4jGraphBackend"
+    ),
 }
 
 

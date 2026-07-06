@@ -1,0 +1,62 @@
+{
+  "LM358": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/lm358.pdf",
+    "source": "ti"
+  },
+  "LM324": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/lm324.pdf",
+    "source": "ti"
+  },
+  "TLV6001": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/tlv6001.pdf",
+    "source": "ti"
+  },
+  "TLV755P": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/tlv755p.pdf",
+    "source": "ti"
+  },
+  "LM317": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/lm317.pdf",
+    "source": "ti"
+  },
+  "LM7805": {
+    "pdf_url": null,
+    "source": "nexar"
+  },
+  "TPS62933": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/tps62933.pdf",
+    "source": "ti"
+  },
+  "TPS62203": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/tps62203.pdf",
+    "source": "ti"
+  },
+  "TPS5430": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/tps5430.pdf",
+    "source": "ti"
+  },
+  "TPS62932": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/tps62932.pdf",
+    "source": "ti"
+  },
+  "TPS63020": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/tps63020.pdf",
+    "source": "ti"
+  },
+  "SN74LVC1G04": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/sn74lvc1g04.pdf",
+    "source": "ti"
+  },
+  "SN74AHCT1G125": {
+    "pdf_url": "https://www.ti.com/lit/ds/symlink/sn74ahct1g125.pdf",
+    "source": "ti"
+  },
+  "1N4148": {
+    "pdf_url": null,
+    "source": "nexar"
+  },
+  "1N5819": {
+    "pdf_url": null,
+    "source": "nexar"
+  }
+}

@@ -167,12 +167,12 @@ class TestGraphBackendRegistry:
 
     def test_unknown_backend_raises_value_error(self) -> None:
         config = Config()
-        config.knowledge_graph = KnowledgeGraphConfig(backend="neo4j")
+        config.knowledge_graph = KnowledgeGraphConfig(backend="missing")
         with pytest.raises(ValueError, match="Unknown knowledge_graph.backend"):
             GraphBackendRegistry(config)
 
-    def test_registry_contains_only_networkx(self) -> None:
-        assert set(GRAPH_BACKEND_REGISTRY.keys()) == {"networkx"}
+    def test_registry_contains_networkx_and_neo4j(self) -> None:
+        assert set(GRAPH_BACKEND_REGISTRY.keys()) == {"networkx", "neo4j"}
 
 
 class TestKnowledgeGraphConfig:
@@ -184,6 +184,20 @@ class TestKnowledgeGraphConfig:
     def test_config_has_knowledge_graph_field(self) -> None:
         config = Config()
         assert config.knowledge_graph.backend == "networkx"
+        assert config.knowledge_graph.neo4j_uri == "bolt://localhost:7687"
+
+    def test_neo4j_config_fields(self) -> None:
+        kg_config = KnowledgeGraphConfig(
+            backend="neo4j",
+            neo4j_uri="bolt://neo4j:7687",
+            neo4j_username="neo4j",
+            neo4j_password="secret",
+            neo4j_database="kg",
+        )
+        assert kg_config.neo4j_uri == "bolt://neo4j:7687"
+        assert kg_config.neo4j_username == "neo4j"
+        assert kg_config.neo4j_password == "secret"
+        assert kg_config.neo4j_database == "kg"
 
     def test_extra_keys_forbidden(self) -> None:
         with pytest.raises(Exception):

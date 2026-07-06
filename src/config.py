@@ -34,7 +34,8 @@ class Config(BaseSettings):
         output_dir: Directory for all generated outputs (schematics, layouts, reports).
         confidence_thresholds: Thresholds for triggering human review at various stages.
         review_queue_path: File path for the JSON review queue.
-        neo4j_uri: Connection URI for the Neo4j knowledge graph database.
+        neo4j_uri: Legacy compatibility alias for the Neo4j URI. New code reads
+            knowledge_graph.neo4j_uri so all backend settings live together.
         log_level: Python logging level (DEBUG, INFO, WARNING, ERROR).
 
     Example:
@@ -88,7 +89,10 @@ class Config(BaseSettings):
 
     neo4j_uri: str = Field(
         default="bolt://localhost:7687",
-        description="Neo4j knowledge graph connection URI",
+        description=(
+            "Legacy Neo4j URI alias; prefer knowledge_graph.neo4j_uri for "
+            "new configuration."
+        ),
     )
 
     graph_path: Path = Field(
@@ -247,6 +251,14 @@ class Config(BaseSettings):
         for yaml_key, field_name in field_mapping.items():
             if yaml_key in yaml_data:
                 config_data[field_name] = yaml_data[yaml_key]
+
+        # Backward compatibility: older configs used top-level neo4j_uri.
+        # Keep accepting it, but mirror it into the nested knowledge_graph
+        # config unless the nested value was explicitly provided.
+        if "neo4j_uri" in yaml_data:
+            kg_data = dict(config_data.get("knowledge_graph") or {})
+            kg_data.setdefault("neo4j_uri", yaml_data["neo4j_uri"])
+            config_data["knowledge_graph"] = kg_data
 
         return cls(**config_data)
 

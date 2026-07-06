@@ -5,7 +5,7 @@ Public API:
     NodeNotFoundError       — raised by add_edge for missing endpoints
     NetworkXGraphBackend    — default in-memory/GraphML implementation
     GraphBackendRegistry    — config-driven backend selection
-    KnowledgeGraphConfig    — config sub-model (knowledge_graph.backend)
+    KnowledgeGraphConfig    — config sub-model (knowledge_graph.*)
 
 Example:
     >>> from src.knowledge_graph.backends import GraphBackendRegistry
