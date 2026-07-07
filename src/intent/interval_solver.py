@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 from src.completion.schemas import Contradiction
+from src.schemas.common import ConditionScope, NoiseSpec
 
 if TYPE_CHECKING:
     from src.schemas.intent import ImprovedIntentDict
@@ -219,6 +220,98 @@ def _check_thermal_budget_allocation(
         )
 
 
+def conditions_comparable(
+    left: ConditionScope | None,
+    right: ConditionScope | None,
+) -> bool:
+    """Return True when two condition scopes are safe to compare arithmetically.
+
+    Skips comparison when either side is absent, parameters differ, or neither
+    side has enough of ``at``/``min``/``max`` to determine overlap.
+    """
+    if left is None or right is None:
+        return False
+    if left.parameter != right.parameter:
+        return False
+
+    if left.at is not None and right.at is not None:
+        return True
+
+    left_min = left.min if left.min is not None else left.at
+    left_max = left.max if left.max is not None else left.at
+    right_min = right.min if right.min is not None else right.at
+    right_max = right.max if right.max is not None else right.at
+
+    if left_min is None and left_max is None:
+        return False
+    if right_min is None and right_max is None:
+        return False
+
+    lo_a = left_min if left_min is not None else left_max
+    hi_a = left_max if left_max is not None else left_min
+    lo_b = right_min if right_min is not None else right_max
+    hi_b = right_max if right_max is not None else right_min
+    return lo_a <= hi_b and lo_b <= hi_a
+
+
+def _check_noise_spec_pair(
+    requirement: NoiseSpec,
+    available: NoiseSpec,
+    result: IntervalCheckResult,
+) -> None:
+    """Compare a required noise ceiling against an available component floor."""
+    if requirement.target_value is None or available.target_value is None:
+        return
+    if not conditions_comparable(requirement.condition, available.condition):
+        logger.info(
+            "Skipping noise comparison: conditions are absent or not comparable"
+        )
+        result.derived["noise_comparison_skipped"] = 1.0
+        return
+
+    if available.target_value > requirement.target_value:
+        req_cond = requirement.condition.raw_text if requirement.condition else "unconditioned"
+        avail_cond = available.condition.raw_text if available.condition else "unconditioned"
+        result.conflicts.append(
+            Contradiction(
+                constraint_a=(
+                    f"Required noise <= {requirement.target_value} "
+                    f"{requirement.unit or ''} ({req_cond})"
+                ),
+                constraint_b=(
+                    f"Available component noise {available.target_value} "
+                    f"{available.unit or ''} ({avail_cond})"
+                ),
+                description=(
+                    "Noise requirement exceeds available component floor at "
+                    "comparable measurement conditions"
+                ),
+                severity="CRITICAL",
+                suggested_resolution=(
+                    "Select a lower-noise component or relax the noise requirement"
+                ),
+                detected_by="rule_checker",
+            )
+        )
+
+
+def _check_condition_scoped_noise(
+    intent: ImprovedIntentDict,
+    result: IntervalCheckResult,
+) -> None:
+    """Rule 3: noise requirement vs component floor when conditions align."""
+    performance = getattr(intent, "performance", None)
+    if performance is None:
+        return
+
+    requirement = performance.noise
+    available = performance.component_noise_floor
+    if requirement is None or available is None:
+        return
+
+    _check_noise_spec_pair(requirement, available, result)
+
+
 def check_interval_constraints(intent: ImprovedIntentDict) -> IntervalCheckResult:
     """Run all scoped deductive checks. Never raises.
 
@@ -232,6 +325,7 @@ def check_interval_constraints(intent: ImprovedIntentDict) -> IntervalCheckResul
     try:
         _check_voltage_dropout_chain(intent, result)
         _check_thermal_budget_allocation(intent, result)
+        _check_condition_scoped_noise(intent, result)
     except Exception as exc:  # defensive: a solver bug must not kill the pipeline
         logger.error(f"Interval solver internal error (treated as no-conflict): {exc}")
     return result

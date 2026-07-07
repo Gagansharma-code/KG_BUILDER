@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
+from src.schemas.common import Ambiguity
 from src.schemas.intent import (
     AmbiguityFlag,
     BOMEntry,
@@ -228,21 +229,26 @@ class TestIntentDict:
         assert intent.clarification_required is False
 
     def test_valid_instantiation_full(self) -> None:
-        """Test valid IntentDict with all fields."""
+        """Test valid IntentDict with all fields.
+
+        IntentDict (=ImprovedIntentDict, the real v2 schema) has no
+        explicit_constraints field and its ambiguities are Ambiguity (v2)
+        instances, not AmbiguityFlag (v1) -- Ambiguity has no "options"
+        field either, only candidate_resolutions.
+        """
         intent = IntentDict(
             goal="2.4GHz RF transceiver",
             frequency=FrequencySpec(value=2.4, unit="GHz"),
             application="wireless sensor node",
-            explicit_constraints=["low power", "small form factor"],
             inferred_constraints=["impedance matched traces", "ground plane required"],
             design_methodology=DesignMethodology.RF_HIGHFREQ,
             board_type="4-layer HDI",
             ambiguities=[
-                AmbiguityFlag(
+                Ambiguity(
                     field="output_power",
                     description="Output power not specified",
                     severity="WARNING",
-                    options=["0dBm", "10dBm", "20dBm"],
+                    candidate_resolutions=["0dBm", "10dBm", "20dBm"],
                 )
             ],
             clarification_required=False,
@@ -250,11 +256,14 @@ class TestIntentDict:
         )
         assert intent.frequency is not None
         assert intent.frequency.value == 2.4
-        assert len(intent.explicit_constraints) == 2
+        assert len(intent.inferred_constraints) == 2
         assert len(intent.ambiguities) == 1
 
     def test_defaults(self) -> None:
-        """Test IntentDict default values."""
+        """Test IntentDict default values.
+
+        IntentDict (=ImprovedIntentDict) has no explicit_constraints field.
+        """
         intent = IntentDict(
             goal="Test",
             application="test",
@@ -263,7 +272,6 @@ class TestIntentDict:
             raw_prompt="test",
         )
         assert intent.frequency is None
-        assert intent.explicit_constraints == []
         assert intent.inferred_constraints == []
         assert intent.ambiguities == []
         assert intent.clarification_required is False
@@ -320,38 +328,50 @@ class TestIntentDict:
         assert restored.design_methodology.value == "mixed_signal"
 
     def test_clarification_required_with_critical_ambiguity(self) -> None:
-        """Test clarification_required True when CRITICAL ambiguity exists."""
+        """Test clarification_required True when a blocking ambiguity exists.
+
+        Ambiguity (v2) has no "CRITICAL" severity value; the equivalent of a
+        blocking condition is severity="ERROR" combined with blocking=True.
+        ImprovedIntentDict.validate_clarification_protocol() enforces that
+        clarification_required=True requires at least one blocking=True
+        ambiguity, so blocking=True must be set here for construction to
+        succeed at all.
+        """
         intent = IntentDict(
             goal="Regulator design",
             application="test",
             design_methodology=DesignMethodology.POWER_MANAGEMENT,
             board_type="2-layer",
             ambiguities=[
-                AmbiguityFlag(
+                Ambiguity(
                     field="input_voltage",
                     description="Input voltage not specified",
-                    severity="CRITICAL",
-                    options=["5V", "12V"],
+                    severity="ERROR",
+                    candidate_resolutions=["5V", "12V"],
+                    blocking=True,
                 )
             ],
             clarification_required=True,
             raw_prompt="Design a regulator",
         )
         assert intent.clarification_required is True
-        assert intent.ambiguities[0].severity == "CRITICAL"
+        assert intent.ambiguities[0].severity == "ERROR"
 
     def test_json_round_trip(self) -> None:
-        """Test IntentDict round-trips JSON correctly."""
+        """Test IntentDict round-trips JSON correctly.
+
+        IntentDict (=ImprovedIntentDict) has no explicit_constraints field,
+        and ambiguities are Ambiguity (v2) instances, not AmbiguityFlag (v1).
+        """
         original = IntentDict(
             goal="Complete test design",
             frequency=FrequencySpec(value=100.0, unit="MHz"),
             application="test",
-            explicit_constraints=["constraint1", "constraint2"],
             inferred_constraints=["inferred1"],
             design_methodology=DesignMethodology.RF_HIGHFREQ,
             board_type="4-layer HDI",
             ambiguities=[
-                AmbiguityFlag(
+                Ambiguity(
                     field="test_field",
                     description="Test ambiguity",
                     severity="WARNING",
@@ -718,7 +738,11 @@ class TestIntentBOMIntegration:
     """Integration tests for complete intent-to-BOM workflow."""
 
     def test_complete_rf_design_intent_to_bom(self) -> None:
-        """Test complete RF design workflow from intent to validated BOM."""
+        """Test complete RF design workflow from intent to validated BOM.
+
+        IntentDict (=ImprovedIntentDict) has no explicit_constraints field,
+        and ambiguities are Ambiguity (v2) instances, not AmbiguityFlag (v1).
+        """
         now = datetime.now(timezone.utc).isoformat()
 
         # Step 1: Create intent with ambiguity
@@ -726,16 +750,15 @@ class TestIntentBOMIntegration:
             goal="915 MHz ISM band transmitter",
             frequency=FrequencySpec(value=915.0, unit="MHz"),
             application="remote sensor telemetry",
-            explicit_constraints=["low power", "compact size"],
             inferred_constraints=["impedance control", "ground plane"],
             design_methodology=DesignMethodology.RF_HIGHFREQ,
             board_type="4-layer HDI",
             ambiguities=[
-                AmbiguityFlag(
+                Ambiguity(
                     field="output_power",
                     description="Transmit power not specified",
                     severity="WARNING",
-                    options=["0dBm", "10dBm"],
+                    candidate_resolutions=["0dBm", "10dBm"],
                 )
             ],
             clarification_required=False,

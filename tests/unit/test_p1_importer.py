@@ -373,10 +373,11 @@ class TestImportSingleDatasheet:
     ) -> None:
         """Import same datasheet twice — verify skipped_duplicates > 0, no duplicate nodes."""
         graph = KnowledgeGraph()
+        base_nodes = graph.stats()["node_count"]
 
         # First import
         result1 = import_datasheet(minimal_datasheet, graph, mock_config)
-        initial_nodes = result1.nodes_created
+        initial_nodes = base_nodes + result1.nodes_created
         assert result1.skipped_duplicates == 0
 
         # Second import (same datasheet)
@@ -483,6 +484,7 @@ class TestImportBatch:
     ) -> None:
         """Verify graph.stats() reflects correct node count after batch import."""
         graph = KnowledgeGraph()
+        base_nodes = graph.stats()["node_count"]
         datasheets = [minimal_datasheet, datasheet_with_pins]
 
         result = import_batch(datasheets, graph, mock_config)
@@ -497,13 +499,14 @@ class TestImportBatch:
 
         # Verify with graph stats
         stats = graph.stats()
-        assert stats["node_count"] == expected_nodes
+        assert stats["node_count"] == base_nodes + expected_nodes
 
     def test_import_batch_tracks_edges_correctly(
         self, datasheet_with_pins, datasheet_with_electrical_params, mock_config
     ) -> None:
         """Verify batch import tracks total edges created correctly."""
         graph = KnowledgeGraph()
+        base_edges = graph.stats()["edge_count"]
         datasheets = [datasheet_with_pins, datasheet_with_electrical_params]
 
         result = import_batch(datasheets, graph, mock_config)
@@ -516,7 +519,7 @@ class TestImportBatch:
 
         # Verify with graph stats
         stats = graph.stats()
-        assert stats["edge_count"] == expected_edges
+        assert stats["edge_count"] == base_edges + expected_edges
 
     def test_batch_result_includes_individual_results(
         self, minimal_datasheet, datasheet_with_pins, mock_config

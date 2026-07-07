@@ -11,7 +11,6 @@ from unittest.mock import MagicMock
 
 from src.intent import get_clarification_questions, parse_intent
 from src.schemas.intent import (
-    AmbiguityFlag,
     DesignMethodology,
     IntentDict,
 )
@@ -83,8 +82,11 @@ def test_parse_vague_goal_triggers_clarification(mock_config):
     # Should require clarification
     assert intent.clarification_required is True
 
-    # Should have CRITICAL ambiguity on goal
-    critical_flags = [a for a in intent.ambiguities if a.severity == "CRITICAL"]
+    # Should have a blocking ambiguity on goal. Ambiguity (the v2 model
+    # intent.ambiguities actually holds) has no "CRITICAL" severity value --
+    # ambiguity_detector.py's blocking cases use severity="ERROR" combined
+    # with blocking=True (see ambiguity_detector.py checks 1 and 3).
+    critical_flags = [a for a in intent.ambiguities if a.severity == "ERROR"]
     assert len(critical_flags) >= 1
 
     goal_flags = [a for a in critical_flags if a.field == "goal"]
@@ -110,9 +112,10 @@ def test_parse_rf_without_frequency_triggers_clarification(mock_config):
     if intent.clarification_required:
         freq_flags = [a for a in intent.ambiguities if a.field == "frequency"]
         assert len(freq_flags) >= 1
-        assert freq_flags[0].severity == "CRITICAL"
-        # Should have options for common frequencies
-        assert len(freq_flags[0].options) > 0
+        assert freq_flags[0].severity == "ERROR"
+        # Should have candidate resolutions for common frequencies (Ambiguity's
+        # actual field name -- AmbiguityFlag's "options" doesn't exist here)
+        assert len(freq_flags[0].candidate_resolutions) > 0
 
 
 # Test 5: methodology_classifier overrides LLM when keyword triggers fire for different methodology
@@ -206,21 +209,22 @@ def test_parse_intent_never_raises_on_model_failure(mock_config):
 
 
 def test_inferred_constraints_not_duplicated(mock_config):
-    """10. Inferred constraints should not duplicate explicit ones."""
-    # Prompt explicitly mentions "compact" for drone
+    """10. Inferred constraints should not duplicate explicit ones.
+
+    ImprovedIntentDict (the real v2 return type) has no explicit_constraints
+    field -- infer_constraints() only ever returns the app-context-inferred
+    set, filtered against explicit strings for de-dup purposes; the explicit
+    strings themselves are not carried onto any field of the returned intent.
+    So this test can only verify the de-dup side directly: "compact" is
+    explicitly stated for a drone prompt, so it must not also appear in
+    inferred_constraints (which would otherwise add it via the drone
+    application inference in constraint_inferrer.APPLICATION_INFERENCES).
+    """
     prompt = "design a compact 3.3V buck converter for a drone"
     intent = parse_intent(prompt, mock_config)
 
-    # "compact" is in explicit constraints
-    explicit_lower = [c.lower() for c in intent.explicit_constraints]
-    assert "compact" in explicit_lower or any("compact" in c.lower() for c in intent.explicit_constraints)
-
-    # "compact" should NOT be in inferred constraints (avoid duplication)
     inferred_lower = [c.lower() for c in intent.inferred_constraints]
-
-    # If "compact" was explicitly stated, it shouldn't be inferred
-    if "compact" in explicit_lower:
-        assert "compact" not in inferred_lower
+    assert "compact" not in inferred_lower
 
 
 # Additional edge case tests

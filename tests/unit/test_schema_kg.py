@@ -98,9 +98,9 @@ class TestKGNodeTypeEnum:
         assert KGNodeType.PIN.value == "pin"
 
     def test_total_count_of_node_types(self) -> None:
-        """Test we have exactly 14 node types (11 original + TOPOLOGY,
-        FUNCTIONAL_BLOCK, DESIGN_CONSTRAINT from the topology/constraint task)."""
-        assert len(list(KGNodeType)) == 14
+        """Test we have exactly 15 node types (11 original + TOPOLOGY,
+        FUNCTIONAL_BLOCK, DESIGN_CONSTRAINT, PREDICTED_METRIC)."""
+        assert len(list(KGNodeType)) == 15
 
 
 # =============================================================================
@@ -128,9 +128,9 @@ class TestKGRelationEnum:
         assert KGRelation.OVERRIDES.value == "overrides"
 
     def test_total_count_of_relations(self) -> None:
-        """Test we have exactly 15 relation types (13 original + IMPLEMENTS,
-        CONSTRAINED_BY from the topology/constraint task)."""
-        assert len(list(KGRelation)) == 15
+        """Test we have exactly 16 relation types (13 original + IMPLEMENTS,
+        CONSTRAINED_BY, DERIVED_FROM)."""
+        assert len(list(KGRelation)) == 16
 
 
 # =============================================================================

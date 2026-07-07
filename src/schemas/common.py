@@ -21,11 +21,25 @@ class Ambiguity(BaseModel):
     blocking: bool = False
 
 
+class ConditionScope(BaseModel):
+    """Structured qualifier for a condition-bearing quantity.
+
+    Shared across NoiseSpec and future spec types. Replaces opaque
+    measurement_condition strings — raw_text preserves the source phrase.
+    """
+
+    parameter: str  # "frequency_hz", "offset_hz", "temp_c"
+    at: Optional[float] = None  # point condition ("at 1 kHz")
+    min: Optional[float] = None  # range condition ("10 Hz–100 kHz")
+    max: Optional[float] = None
+    raw_text: str
+
+
 class NoiseSpec(BaseModel):
     target_value: Optional[float] = None
     unit: Optional[str] = None
     bandwidth_hz: Optional[float] = None
-    measurement_condition: Optional[str] = None
+    condition: Optional[ConditionScope] = None
     raw_text: str
     quantification_source: Optional[str] = None
 

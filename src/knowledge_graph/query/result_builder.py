@@ -49,6 +49,8 @@ def build_subgraph(
     component_instances: list[KGNode] = []
     raw_placement_rules: list[KGNode] = []
     routing_hints: list[KGNode] = []
+    topologies: list[KGNode] = []
+    functional_blocks: list[KGNode] = []
 
     # Step 1 + 2: retrieve and categorize every visited node
     for node_id in path_confidences:
@@ -65,6 +67,10 @@ def build_subgraph(
             raw_placement_rules.append(node)
         elif node.node_type == KGNodeType.ROUTING_RULE:
             routing_hints.append(node)
+        elif node.node_type == KGNodeType.TOPOLOGY:
+            topologies.append(node)
+        elif node.node_type == KGNodeType.FUNCTIONAL_BLOCK:
+            functional_blocks.append(node)
         else:
             # PHYSICS_CONCEPT, ELECTRICAL_PROPERTY, DESIGN_RECIPE, etc.
             # silently skipped — they are not part of the DesignSubgraph payload
@@ -86,6 +92,8 @@ def build_subgraph(
         design_rules=design_rules,
         placement_rules=placement_rules,
         routing_hints=routing_hints,
+        topologies=topologies,
+        functional_blocks=functional_blocks,
         design_methodology=design_methodology,
         path_confidences=path_confidences,
         query_depth=query_depth,

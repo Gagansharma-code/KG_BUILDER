@@ -61,6 +61,7 @@ class KGNodeType(str, Enum):
     TOPOLOGY = "topology"  # Layer 4: formal circuit pattern (ldo, buck_converter)
     FUNCTIONAL_BLOCK = "functional_block"  # Layer 4: block within a topology
     DESIGN_CONSTRAINT = "design_constraint"  # Layer 5: per-design-run constraint, design_id-scoped
+    PREDICTED_METRIC = "predicted_metric"  # Layer 5: per-design-run computed output, design_id-scoped
 
 
 class KGRelation(str, Enum):
@@ -85,6 +86,7 @@ class KGRelation(str, Enum):
     OVERRIDES = "overrides"  # Rule/method supersedes another
     IMPLEMENTS = "implements"  # ComponentType/Instance realizes a Topology
     CONSTRAINED_BY = "constrained_by"  # Design element subject to a DesignConstraint
+    DERIVED_FROM = "derived_from"  # Predicted metric provenance link to an input node
 
 
 class KGNode(BaseModel):
@@ -196,6 +198,8 @@ class DesignSubgraph(BaseModel):
         design_rules: Quantitative constraint edges with values and units
         placement_rules: PlacementRule nodes from KG-4 (proximity, keepout)
         routing_hints: RoutingRule nodes from KG-4 (topology requirements)
+        topologies: Matched formal TOPOLOGY nodes (layer 4)
+        functional_blocks: FUNCTIONAL_BLOCK nodes co-started with matched topologies
         design_methodology: Active design methodology identifier
         path_confidences: Mapping of node_id to traversal confidence along path
         query_depth: How deep the graph traversal went (hops from query node)
@@ -223,6 +227,14 @@ class DesignSubgraph(BaseModel):
     routing_hints: list[KGNode] = Field(
         default_factory=list,
         description="RoutingRule nodes from KG-4 (topology requirements)",
+    )
+    topologies: list[KGNode] = Field(
+        default_factory=list,
+        description="Matched formal TOPOLOGY nodes (layer 4)",
+    )
+    functional_blocks: list[KGNode] = Field(
+        default_factory=list,
+        description="FUNCTIONAL_BLOCK nodes from matched topologies",
     )
     design_methodology: str = Field(
         description="Active design methodology identifier (e.g., 'power_regulation')",

@@ -67,6 +67,9 @@ class Neo4jGraphBackend(GraphBackend):
         auth = (username, password) if username and password else None
         self._driver = GraphDatabase.driver(neo4j_uri, auth=auth)
         self._ensure_schema()
+        from src.knowledge_graph.topology.library import install_topologies
+
+        install_topologies(self)
 
     def add_node(self, node: KGNode) -> None:
         """Add node to graph. If node_id already exists, update its properties.
@@ -466,12 +469,33 @@ def _json_dumps(value: Any) -> str:
     return json.dumps(value, separators=(",", ":"))
 
 
+_BLOB_PROPERTY_KEYS = frozenset({"spec", "explicit", "inferred"})
+
+
+def _neo4j_promoted_scalars(nested_props: dict[str, Any]) -> dict[str, Any]:
+    """Promote queryable scalar node properties out of the properties blob."""
+    promoted: dict[str, Any] = {}
+    if "frequency_hz" in nested_props:
+        promoted["frequency_hz"] = nested_props["frequency_hz"]
+    component_type = nested_props.get("component_type")
+    if component_type is not None:
+        promoted["prop_component_type"] = component_type
+    for key, val in nested_props.items():
+        if key in _BLOB_PROPERTY_KEYS or key == "component_type":
+            continue
+        if key.startswith("condition_"):
+            promoted[key] = val
+            continue
+        if isinstance(val, (int, float, bool, str)):
+            promoted[key] = val
+    return promoted
+
+
 def _node_props(node: KGNode) -> dict[str, Any]:
     props = node.model_dump(mode="json")
     nested_props = props.pop("properties")
     props["properties_json"] = _json_dumps(nested_props)
-    props["frequency_hz"] = nested_props.get("frequency_hz")
-    props["prop_component_type"] = nested_props.get("component_type")
+    props.update(_neo4j_promoted_scalars(nested_props))
     return props
 
 
@@ -487,9 +511,10 @@ def _edge_props(edge: KGEdge) -> dict[str, Any]:
 def _node_from_record(raw: Any) -> KGNode:
     data = dict(raw)
     properties_json = data.pop("properties_json", "{}")
-    data["properties"] = json.loads(properties_json or "{}")
-    data.pop("frequency_hz", None)
-    data.pop("prop_component_type", None)
+    nested_props = json.loads(properties_json or "{}")
+    data["properties"] = nested_props
+    for key in _neo4j_promoted_scalars(nested_props):
+        data.pop(key, None)
     return KGNode.model_validate(data)
 
 

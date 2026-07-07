@@ -331,6 +331,28 @@ def enqueue_for_review(
     )
 
 
+def enqueue_unresolved_protection(
+    intent: BaseModel,
+    design_id: str,
+    unresolved: list[Any],
+    config: Config,
+) -> ReviewQueueItem:
+    """Enqueue review when protection requirements lack topology-library blocks."""
+    flags = [
+        f"protection_unresolved:{req.kind}:{getattr(req, 'raw_text', '')[:80]}"
+        for req in unresolved
+    ]
+    return enqueue_for_review(
+        intent,
+        GateStage.BOM,
+        design_id,
+        config,
+        flags=flags,
+        severity="WARNING",
+        verdict="PROTECTION_UNRESOLVED",
+    )
+
+
 def enqueue_bom(bom: ValidatedBOM, config: Config) -> ReviewQueueItem:
     """Write BOM review item to queue with stage='bom_generation'.
 

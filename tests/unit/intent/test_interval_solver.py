@@ -188,7 +188,7 @@ class TestPipelineWiring:
     @patch("src.intent.pipeline.persist_design_constraints")
     @patch("src.intent.pipeline.generate_bom")
     @patch("src.intent.pipeline._run_retrieval", return_value=None)
-    @patch("src.intent.pipeline._run_stage2", side_effect=lambda i, c: i)
+    @patch("src.intent.pipeline._run_stage2", side_effect=lambda i, c: (i, False))
     @patch("src.intent.pipeline.parse_intent")
     def test_conflict_halts_before_generate_bom(
         self, mock_parse, mock_stage2, mock_retrieval, mock_generate, mock_persist,
@@ -223,7 +223,7 @@ class TestPipelineWiring:
     @patch("src.intent.pipeline.generate_bom")
     @patch("src.intent.pipeline.query_graph")
     @patch("src.intent.pipeline._run_retrieval", return_value=None)
-    @patch("src.intent.pipeline._run_stage2", side_effect=lambda i, c: i)
+    @patch("src.intent.pipeline._run_stage2", side_effect=lambda i, c: (i, False))
     @patch("src.intent.pipeline.parse_intent")
     def test_feasible_path_persists_constraints(
         self, mock_parse, mock_stage2, mock_retrieval, mock_query,

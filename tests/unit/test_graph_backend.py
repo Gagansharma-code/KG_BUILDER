@@ -148,8 +148,9 @@ class TestKnowledgeGraphBackwardCompat:
     def test_internal_graph_attribute_preserved(self) -> None:
         """validator.py iterates graph._graph directly — must keep working."""
         kg = KnowledgeGraph()
+        base_nodes = len(kg._graph.nodes)
         kg.add_node(_make_node())
-        assert len(kg._graph.nodes) == 1
+        assert len(kg._graph.nodes) == base_nodes + 1
 
 
 class TestGraphBackendRegistry:

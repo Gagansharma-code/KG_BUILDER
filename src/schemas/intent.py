@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .common import (
     AccuracySpec,
     Ambiguity,
+    ConditionScope,
     DesignRequest,
     ImpliedRequirement,
     NoiseSpec,
@@ -39,18 +40,60 @@ MAX_PROMPT_TOKENS = 4000
 
 
 class FrequencySpec(BaseModel):
-    """Frequency specification with value and unit.
+    """Frequency specification: point OR range, never both.
 
-    Used in IntentDict to specify operating frequencies for RF, power,
-    and mixed-signal designs.
+    Point constraints: set ``value`` + ``unit``; leave ``min_hz``/``max_hz`` unset.
+    Range constraints (e.g. "10 Hz–100 kHz selectable"): set ``min_hz`` and
+    ``max_hz`` in absolute Hz only — do **not** set ``value``. When either range
+    field is set, ``value`` is not authoritative and must not be set alongside
+    a range (validation rejects that ambiguous construction).
 
     Attributes:
-        value: Numeric frequency value
-        unit: Frequency unit (Hz, kHz, MHz, GHz)
+        value: Point-spec frequency value (unset for range-only specs)
+        unit: Frequency unit for point specs (Hz, kHz, MHz, GHz)
+        min_hz: Lower bound in Hz for selectable ranges
+        max_hz: Upper bound in Hz for selectable ranges
     """
 
-    value: float = Field(gt=0.0, description="Numeric frequency value")
-    unit: Literal["Hz", "kHz", "MHz", "GHz"] = Field(description="Frequency unit")
+    value: Optional[float] = Field(
+        default=None, gt=0.0, description="Point-spec numeric frequency value"
+    )
+    unit: Optional[Literal["Hz", "kHz", "MHz", "GHz"]] = Field(
+        default=None, description="Unit for point-spec value"
+    )
+    min_hz: Optional[float] = Field(
+        default=None, gt=0.0, description="Range lower bound in Hz"
+    )
+    max_hz: Optional[float] = Field(
+        default=None, gt=0.0, description="Range upper bound in Hz"
+    )
+
+    @model_validator(mode="after")
+    def validate_point_or_range(self) -> Self:
+        has_range_field = self.min_hz is not None or self.max_hz is not None
+        has_point = self.value is not None
+
+        if has_point and has_range_field:
+            raise ValueError(
+                "FrequencySpec cannot set value together with min_hz/max_hz; "
+                "use value+unit for a point or min_hz+max_hz for a range"
+            )
+
+        if has_point:
+            if self.unit is None:
+                raise ValueError("unit is required when value is set")
+            return self
+
+        if has_range_field:
+            if self.min_hz is None or self.max_hz is None:
+                raise ValueError("Both min_hz and max_hz are required for a range spec")
+            if self.min_hz > self.max_hz:
+                raise ValueError("min_hz must be <= max_hz")
+            return self
+
+        raise ValueError(
+            "FrequencySpec requires either value+unit (point) or min_hz+max_hz (range)"
+        )
 
 
 class AmbiguityFlag(BaseModel):
@@ -94,6 +137,7 @@ class DesignMethodology(str, Enum):
 
 class PerformanceRequirements(BaseModel):
     noise: Optional[NoiseSpec] = None
+    component_noise_floor: Optional[NoiseSpec] = None
     accuracy: Optional[AccuracySpec] = None
     stability: Optional[StabilitySpec] = None
     output_current_ma: Optional[float] = None
@@ -117,6 +161,14 @@ class CurrentSpec(BaseModel):
     raw_text: str
 
 
+class ProtectionRequirement(BaseModel):
+    """A single protection or safety behavior requested in the design prompt."""
+
+    kind: str  # open vocabulary: reverse_current, esd, kelvin_sensing, ...
+    params: Optional[dict[str, float]] = None
+    raw_text: str
+
+
 class ElectricalConstraints(BaseModel):
     supply_voltage: Optional[VoltageSpec] = None
     supply_topology: Optional[str] = None
@@ -127,7 +179,6 @@ class ElectricalConstraints(BaseModel):
     input_impedance_ohm: Optional[float] = None
     output_impedance_ohm: Optional[float] = None
     isolation_required: bool = False
-    polarity_generation_required: bool = False
 
 
 class ThermalConstraints(BaseModel):
@@ -136,7 +187,6 @@ class ThermalConstraints(BaseModel):
     storage_temp_min_c: Optional[float] = None
     storage_temp_max_c: Optional[float] = None
     thermal_matching_required: bool = False
-    kelvin_sensing_required: bool = False
     max_self_heating_c: Optional[float] = None
     thermal_resistance_target_c_per_w: Optional[float] = None
 
@@ -252,6 +302,7 @@ class ImprovedIntentDict(_IntentDictBase):
     compliance: Optional[ComplianceRequirements] = None
     cost: Optional[CostConstraints] = None
     component_preferences: list[ComponentPreference] = Field(default_factory=list)
+    protection_requirements: list[ProtectionRequirement] = Field(default_factory=list)
     implied_requirements: list[ImpliedRequirement] = Field(default_factory=list)
     missing_critical_specs: list[str] = Field(default_factory=list)
     contradictions_detected: list[str] = Field(default_factory=list)
@@ -412,12 +463,14 @@ __all__ = [
     "FrequencySpec",
     "AmbiguityFlag",
     "DesignMethodology",
+    "ConditionScope",
     "NoiseSpec",
     "AccuracySpec",
     "StabilitySpec",
     "PerformanceRequirements",
     "VoltageSpec",
     "CurrentSpec",
+    "ProtectionRequirement",
     "ElectricalConstraints",
     "ThermalConstraints",
     "ManufacturingConstraints",

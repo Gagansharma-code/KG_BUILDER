@@ -99,4 +99,7 @@ class GraphBackendRegistry:
         dotted_path = GRAPH_BACKEND_REGISTRY[self._kg_config.backend]
         cls = _load_class(dotted_path)
         self._graph_backend = _instantiate_backend(cls, self._config)
+        from src.knowledge_graph.topology.library import install_topologies
+
+        install_topologies(self._graph_backend)
         return self._graph_backend

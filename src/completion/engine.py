@@ -12,7 +12,7 @@ from src.completion.axiom_loader import (
     load_axioms_for_intent,
 )
 from src.completion.contradiction_checker import run_rule_checker
-from src.completion.schemas import RequirementCompletionResult
+from src.completion.schemas import Contradiction, RequirementCompletionResult
 from src.completion.system_prompt import build_system_prompt
 from src.schemas.common import Ambiguity
 from src.schemas.intent import ImprovedIntentDict
@@ -34,6 +34,53 @@ class CompletionEngineError(Exception):
     pass
 
 
+PROTECTION_RULE_CONSTRAINT_B = (
+    "No matching functional_block in topology library"
+)
+
+
+def is_protection_contradiction(contradiction: Contradiction) -> bool:
+    """Return True for Stage 2 Rule 4 protection-library gaps."""
+    return (
+        contradiction.detected_by == "rule_checker"
+        and contradiction.constraint_b == PROTECTION_RULE_CONSTRAINT_B
+        and contradiction.constraint_a.startswith("Protection required:")
+    )
+
+
+def protection_review_flags_from_contradictions(
+    contradictions: list[Contradiction],
+    *,
+    intent: ImprovedIntentDict,
+) -> list[str]:
+    """Build review-queue flags for unresolved protection Rule 4 contradictions."""
+    flags: list[str] = []
+    for contradiction in contradictions:
+        if not is_protection_contradiction(contradiction):
+            continue
+        kind = contradiction.constraint_a.removeprefix("Protection required: ").strip()
+        raw_text = ""
+        for requirement in intent.protection_requirements:
+            if requirement.kind == kind:
+                raw_text = getattr(requirement, "raw_text", "")[:80]
+                break
+        flags.append(f"protection_unresolved:{kind}:{raw_text}")
+    return flags
+
+
+def protection_review_flags_for_intent(intent: ImprovedIntentDict) -> list[str]:
+    """Derive protection review flags by re-running Rule 4 checks.
+
+    Callers should only apply these when Stage 2 completed and populated
+    ``contradictions_detected`` — not on the CompletionEngineError fallback path.
+    """
+    contradictions = run_rule_checker(intent, RequirementCompletionResult())
+    return protection_review_flags_from_contradictions(
+        contradictions,
+        intent=intent,
+    )
+
+
 def _resolve_completion_config(config: "Config") -> tuple[Path, str, str]:
     project_root = Path(__file__).resolve().parents[2]
     data_dir = getattr(config, "domain_knowledge_dir", None) or (
@@ -49,8 +96,17 @@ def call_llm_with_instructor(
     intent: ImprovedIntentDict,
     config: "Config",
     output_schema: Type["BaseModel"],
+    max_attempts: int = MAX_ATTEMPTS,
 ) -> RequirementCompletionResult:
-    """Call LLM via Instructor with retries and exponential backoff."""
+    """Call LLM via Instructor with retries and exponential backoff.
+
+    max_attempts defaults to MAX_ATTEMPTS (Stage 2's pipeline-gating call —
+    worth retrying transient failures against). Callers whose failure mode
+    is a soft degrade-to-None rather than a pipeline gate (e.g. optional
+    enrichment extractions) should pass max_attempts=1 so a genuinely
+    unavailable LLM fails in one attempt instead of paying the full
+    backoff schedule for no benefit.
+    """
     _, base_url, model = _resolve_completion_config(config)
     api_key = getattr(config, "llm_api_key", "not-needed")
 
@@ -74,7 +130,7 @@ def call_llm_with_instructor(
     )
 
     last_exc: Exception | None = None
-    for attempt in range(MAX_ATTEMPTS):
+    for attempt in range(max_attempts):
         try:
             result = instructor_client.chat.completions.create(
                 model=model,
@@ -91,10 +147,10 @@ def call_llm_with_instructor(
             logger.warning(
                 "Completion LLM attempt %d/%d failed: %s",
                 attempt + 1,
-                MAX_ATTEMPTS,
+                max_attempts,
                 exc,
             )
-            if attempt < MAX_ATTEMPTS - 1:
+            if attempt < max_attempts - 1:
                 time.sleep(BACKOFF_SECONDS[attempt])
 
     raise CompletionEngineError(str(last_exc))

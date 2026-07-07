@@ -11,9 +11,18 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from src.schemas.intent import DesignMethodology, FrequencySpec, ImprovedIntentDict
+from src.completion.engine import call_llm_with_instructor
+from src.schemas.intent import (
+    DesignMethodology,
+    ElectricalConstraints,
+    FrequencySpec,
+    ImprovedIntentDict,
+    PerformanceRequirements,
+    ProtectionRequirement,
+    ThermalConstraints,
+)
 
 if TYPE_CHECKING:
     from src.config import Config
@@ -49,6 +58,58 @@ Rules:
 - If you cannot determine a field with confidence > 0.75, add it to ambiguities
 """
 
+# System prompt for the typed constraint extraction call (electrical/thermal/
+# performance). Separate from SYSTEM_PROMPT/ParsedIntent's core fields —
+# this is a second, independent Instructor call (see _extract_typed_constraints),
+# not part of the goal/frequency/methodology extraction above.
+TYPED_CONSTRAINT_SYSTEM_PROMPT = """
+You are a PCB/analog design requirements extractor. Read the design intent
+JSON provided (its "raw_prompt" field is the original user request) and
+extract ONLY the numeric electrical, thermal, and performance requirements
+it states or directly implies. Do not guess values that are not stated or
+clearly implied by the prompt — omit a field entirely rather than invent a
+number.
+
+Extract into exactly three top-level categories, using these field names:
+
+- electrical: supply_voltage (min_v/typ_v/max_v), supply_topology (e.g.
+  "single_dc", "battery", "dual_rail"), supply_current_budget (min_ma/typ_ma/
+  max_ma), output_voltage_compliance (min_v/typ_v/max_v), output_current
+  (min_ma/typ_ma/max_ma), power_budget_mw, input_impedance_ohm,
+  output_impedance_ohm, isolation_required (bool)
+
+- thermal: operating_temp_min_c, operating_temp_max_c, storage_temp_min_c,
+  storage_temp_max_c, thermal_matching_required (bool), max_self_heating_c,
+  thermal_resistance_target_c_per_w
+
+- performance: noise (target_value, unit, bandwidth_hz, condition with
+  parameter/at/min/max/raw_text — e.g. "at 1kHz"), accuracy (absolute_ppm,
+  relative_percent, drift_ppm_per_C), stability (short_term_ppm,
+  long_term_ppm_per_year, thermal_stability_ppm_per_C), output_current_ma,
+  output_current_range (as [min, max]), adjustability (e.g. "potentiometer",
+  "DAC", "fixed"), settling_time_us, bandwidth_hz
+
+- protection_requirements: list of protection/safety behaviors explicitly
+  requested in the prompt. Each entry must have:
+    kind — one of: reverse_current, reverse_polarity, esd, thermal_shutdown,
+      soft_start, emi_input_filter, kelvin_sensing (use the closest match)
+    params — optional numeric parameters as a flat dict (e.g.
+      {"current_rating_ma": 100})
+    raw_text — exact phrase from raw_prompt that triggered this entry
+
+Rules:
+- Every VoltageSpec, CurrentSpec, NoiseSpec, AccuracySpec, and StabilitySpec
+  object you populate MUST include its own "raw_text" field, quoting the
+  exact phrase from raw_prompt that justifies the value (e.g. raw_text=
+  "single Li-ion battery (3.0-4.2V)"). Never omit raw_text on a populated
+  spec object.
+- If none of a category's fields apply, omit that whole category (leave it
+  null) rather than returning an empty-but-present object.
+- Units in the field names are the required units (v=volts, ma=milliamps,
+  mw=milliwatts, c=Celsius, ohm=ohms) — convert stated values into these
+  units rather than inventing new unit fields.
+"""
+
 
 class ParsedIntent(BaseModel):
     """Output model for LLM intent parsing.
@@ -70,6 +131,57 @@ class ParsedIntent(BaseModel):
     ambiguities: list[str] = Field(
         default_factory=list, description="Fields that could not be confidently extracted"
     )
+    electrical: Optional[ElectricalConstraints] = Field(
+        default=None, description="Typed electrical constraints, if extracted"
+    )
+    thermal: Optional[ThermalConstraints] = Field(
+        default=None, description="Typed thermal constraints, if extracted"
+    )
+    performance: Optional[PerformanceRequirements] = Field(
+        default=None, description="Typed performance requirements, if extracted"
+    )
+
+
+class TypedConstraintExtraction(BaseModel):
+    """Response model for the typed constraint extraction Instructor call.
+
+    Deliberately mirrors ElectricalConstraints/ThermalConstraints/
+    PerformanceRequirements field-for-field (same models, reused directly)
+    so Pydantic's own nested-model validation is the correctness check —
+    no separate parsing/validation logic needed.
+    """
+
+    electrical: Optional[ElectricalConstraints] = None
+    thermal: Optional[ThermalConstraints] = None
+    performance: Optional[PerformanceRequirements] = None
+    protection_requirements: list[ProtectionRequirement] = Field(default_factory=list)
+
+    @field_validator("protection_requirements", mode="before")
+    @classmethod
+    def _coerce_protection_requirements(cls, value: Any) -> list[ProtectionRequirement]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return _sanitize_protection_requirements(value)
+        return []
+
+
+def _sanitize_protection_requirements(
+    raw: list[ProtectionRequirement] | list[dict[str, Any]] | None,
+) -> list[ProtectionRequirement]:
+    """Drop malformed protection entries; never raise."""
+    if not raw:
+        return []
+    valid: list[ProtectionRequirement] = []
+    for entry in raw:
+        try:
+            if isinstance(entry, ProtectionRequirement):
+                valid.append(entry)
+            else:
+                valid.append(ProtectionRequirement.model_validate(entry))
+        except Exception as exc:
+            logger.warning(f"Dropping malformed protection requirement: {exc}")
+    return valid
 
 
 GOAL_STOPWORDS = {
@@ -227,6 +339,52 @@ def _call_llm_with_instructor(
 
     except Exception as e:
         logger.error(f"LLM parsing failed: {e}")
+        return None
+
+
+def _extract_typed_constraints(
+    prompt: str,
+    context_intent: ImprovedIntentDict,
+    config: Config,
+) -> Optional[TypedConstraintExtraction]:
+    """Extract typed electrical/thermal/performance constraints via Instructor.
+
+    Independent of _call_llm_with_instructor's goal/frequency/methodology
+    extraction above — a second, separate Instructor call scoped to only
+    these three categories, reusing the same real call_llm_with_instructor
+    wrapper Stage 2 already uses (src/completion/engine.py), not a new
+    client implementation.
+
+    Never raises: any LLM/validation failure is logged as a warning and
+    None is returned, matching the defensive pattern already used by
+    interval_solver.check_interval_constraints and
+    persist_design_constraints (both never propagate a failure here).
+
+    Args:
+        prompt: The user's raw natural language design prompt
+        context_intent: Draft intent (goal/methodology/raw_prompt at least)
+            giving the LLM call context; not required to be the final intent
+        config: Application configuration (LLM endpoint resolved the same
+            way Stage 2 resolves it — see call_llm_with_instructor)
+
+    Returns:
+        TypedConstraintExtraction on success, None on any failure
+    """
+    try:
+        result = call_llm_with_instructor(
+            system_prompt=TYPED_CONSTRAINT_SYSTEM_PROMPT,
+            intent=context_intent,
+            config=config,
+            output_schema=TypedConstraintExtraction,
+            # Soft degrade-to-None on failure, not a pipeline gate like
+            # Stage 2 — one attempt only, no exponential backoff.
+            max_attempts=1,
+        )
+        if result is None:
+            return None
+        return result  # type: ignore[return-value]
+    except Exception as exc:
+        logger.warning(f"Typed constraint extraction failed (leaving fields None): {exc}")
         return None
 
 
@@ -397,6 +555,30 @@ def parse_intent(
         logger.info("Using rule-based parser (LLM unavailable)")
         parsed = _rule_based_parse(prompt)
 
+    # Step 1a: Extract typed electrical/thermal/performance constraints.
+    # Independent of the goal/frequency/methodology parse above (works the
+    # same whether that came from the LLM or the rule-based fallback).
+    # Needs a minimal intent for LLM context; uses parsed's raw (not yet
+    # cleaned) fields since cleaned_goal doesn't exist until the next line.
+    context_intent = ImprovedIntentDict(
+        goal=parsed.goal,
+        application=parsed.application,
+        design_methodology=parsed.design_methodology,
+        board_type=parsed.board_type,
+        raw_prompt=prompt,
+    )
+    typed_constraints = _extract_typed_constraints(prompt, context_intent, config)
+    protection_requirements: list[ProtectionRequirement] = []
+    if typed_constraints is not None:
+        parsed = parsed.model_copy(
+            update={
+                "electrical": typed_constraints.electrical,
+                "thermal": typed_constraints.thermal,
+                "performance": typed_constraints.performance,
+            }
+        )
+        protection_requirements = list(typed_constraints.protection_requirements)
+
     cleaned_goal = clean_goal(parsed.goal)
 
     # Step 1b: Classify topology (closes DOC_DRIFT_AUDIT.md N4). Matched
@@ -428,6 +610,10 @@ def parse_intent(
         ambiguities=[],
         clarification_required=False,
         raw_prompt=prompt,
+        electrical=parsed.electrical,
+        thermal=parsed.thermal,
+        performance=parsed.performance,
+        protection_requirements=protection_requirements,
     )
     ambiguity_flags = detect_ambiguities(draft_intent, prompt)
     for ambiguity in parsed.ambiguities:
@@ -456,6 +642,10 @@ def parse_intent(
         ambiguities=ambiguity_flags,
         clarification_required=clarification_required,
         raw_prompt=prompt,
+        electrical=parsed.electrical,
+        thermal=parsed.thermal,
+        performance=parsed.performance,
+        protection_requirements=protection_requirements,
     )
 
 

@@ -30,6 +30,7 @@ from src.schemas.intent import (
     ImprovedIntentDict,
     NoiseSpec,
     PerformanceRequirements,
+    ProtectionRequirement,
     StabilitySpec,
     ThermalConstraints,
 )
@@ -158,8 +159,13 @@ def _build_prompt_1_intent() -> ImprovedIntentDict:
         ],
         electrical=ElectricalConstraints(
             supply_topology="single_dc",
-            polarity_generation_required=True,
         ),
+        protection_requirements=[
+            ProtectionRequirement(
+                kind="reverse_polarity",
+                raw_text="reverse polarity protection",
+            ),
+        ],
         performance=PerformanceRequirements(
             noise=NoiseSpec(raw_text="ultra low noise"),
             stability=StabilitySpec(raw_text="highly stable"),

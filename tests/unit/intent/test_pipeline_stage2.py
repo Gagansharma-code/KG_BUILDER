@@ -137,7 +137,9 @@ def test_stage2_not_called_when_stage1_blocks(
 
     from src.intent.pipeline import run_intent_pipeline
 
-    _, validated_bom = run_intent_pipeline(PROMPT, mock_graph, config)
+    # run_intent_pipeline returns (intent, bom, retrieval_result) -- a
+    # triple, per src/intent/pipeline.py's Stage 2.5 retrieval addition.
+    _, validated_bom, _ = run_intent_pipeline(PROMPT, mock_graph, config)
 
     mock_run_completion_engine.assert_not_called()
     assert validated_bom.review_required is True
@@ -163,7 +165,7 @@ def test_pipeline_halts_at_gate2_when_stage2_blocks(
 
     from src.intent.pipeline import run_intent_pipeline
 
-    _, validated_bom = run_intent_pipeline(PROMPT, mock_graph, config)
+    _, validated_bom, _ = run_intent_pipeline(PROMPT, mock_graph, config)
 
     mock_query_graph.assert_not_called()
     assert validated_bom.review_required is True
@@ -194,7 +196,7 @@ def test_completion_engine_error_continues_with_stage1_intent(
 
     from src.intent.pipeline import run_intent_pipeline
 
-    _, validated_bom = run_intent_pipeline(PROMPT, mock_graph, config)
+    _, validated_bom, _ = run_intent_pipeline(PROMPT, mock_graph, config)
 
     mock_query_graph.assert_called_once()
     assert validated_bom is not None
@@ -287,7 +289,7 @@ def test_full_happy_path_returns_enriched_intent_and_bom(
 
     from src.intent.pipeline import run_intent_pipeline
 
-    result_intent, result_bom = run_intent_pipeline(PROMPT, mock_graph, config)
+    result_intent, result_bom, _ = run_intent_pipeline(PROMPT, mock_graph, config)
 
     assert result_intent is intent_v2
     assert result_bom is mock_validated

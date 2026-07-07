@@ -321,6 +321,7 @@ class TestKG2GraphBuilder:
     def test_kg2_graph_builder_sets_layer_2(self, tmp_path: Path) -> None:
         """Test kg2_graph_builder sets layer=2 on all created nodes."""
         graph = KnowledgeGraph()
+        base_stats = graph.stats()
         
         triples = [
             Triple(
@@ -339,11 +340,11 @@ class TestKG2GraphBuilder:
         
         # Check all nodes in graph have layer=2
         stats = graph.stats()
-        # Verify layer-specific counts
-        assert stats.get("nodes_layer_2", 0) >= 1
-        assert stats.get("nodes_layer_1", 0) == 0
-        assert stats.get("nodes_layer_3", 0) == 0
-        assert stats.get("nodes_layer_4", 0) == 0
+        # Verify layer-specific counts relative to bootstrap baseline
+        assert stats.get("nodes_layer_2", 0) >= base_stats.get("nodes_layer_2", 0) + 1
+        assert stats.get("nodes_layer_1", 0) == base_stats.get("nodes_layer_1", 0)
+        assert stats.get("nodes_layer_3", 0) == base_stats.get("nodes_layer_3", 0)
+        assert stats.get("nodes_layer_4", 0) == base_stats.get("nodes_layer_4", 0)
 
     def test_kg2_creates_design_recipe_nodes(self, tmp_path: Path) -> None:
         """Test KG-2 creates DESIGN_RECIPE nodes for design patterns."""

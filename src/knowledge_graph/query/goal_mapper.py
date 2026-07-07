@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from src.schemas.kg import KGNode, KGNodeType
+from src.schemas.kg import KGNode, KGNodeType, KGRelation
 
 if TYPE_CHECKING:
     from src.knowledge_graph import KnowledgeGraph
@@ -19,7 +19,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Only these node types qualify as traversal start nodes
-_START_NODE_TYPES = (KGNodeType.COMPONENT_TYPE, KGNodeType.DESIGN_RECIPE)
+_START_NODE_TYPES = (
+    KGNodeType.COMPONENT_TYPE,
+    KGNodeType.DESIGN_RECIPE,
+    KGNodeType.TOPOLOGY,
+)
 
 
 def _goal_words(goal: str) -> list[str]:
@@ -34,10 +38,41 @@ def _goal_words(goal: str) -> list[str]:
     return words
 
 
+def _include_topology_blocks(
+    start_nodes: list[KGNode],
+    graph: KnowledgeGraph,
+) -> list[KGNode]:
+    """Include FUNCTIONAL_BLOCK children when a TOPOLOGY node is a start.
+
+    PART_OF edges run block -> topology, so outbound BFS from a TOPOLOGY
+    start cannot reach its blocks. Co-starting from those blocks keeps them
+    in path_confidences without changing global traversal semantics.
+    """
+    if not start_nodes:
+        return start_nodes
+
+    expanded: list[KGNode] = []
+    seen: set[str] = set()
+    for node in start_nodes:
+        if node.id not in seen:
+            expanded.append(node)
+            seen.add(node.id)
+        if node.node_type != KGNodeType.TOPOLOGY:
+            continue
+        for edge in graph.get_edges_to(node.id, relation=KGRelation.PART_OF):
+            block = graph.get_node(edge.source_id)
+            if block is not None and block.id not in seen:
+                expanded.append(block)
+                seen.add(block.id)
+    return expanded
+
+
 def map_goal_to_nodes(goal: str, graph: KnowledgeGraph) -> list[KGNode]:
     """Find KG start nodes for a goal string.
 
-    Only COMPONENT_TYPE and DESIGN_RECIPE nodes qualify as start nodes.
+    COMPONENT_TYPE, DESIGN_RECIPE, and TOPOLOGY nodes qualify as start nodes.
+    When a TOPOLOGY node matches, its FUNCTIONAL_BLOCK children are included
+    as co-start nodes (PART_OF edges are block -> topology).
 
     Three strategies applied in order; returns at first hit:
     - Strategy 1: exact label match (case-insensitive)
@@ -58,7 +93,9 @@ def map_goal_to_nodes(goal: str, graph: KnowledgeGraph) -> list[KGNode]:
         candidates.extend(graph.find_nodes_by_type(node_type))
 
     if not candidates:
-        logger.warning(f"No COMPONENT_TYPE or DESIGN_RECIPE nodes in graph for goal: {goal!r}")
+        logger.warning(
+            f"No COMPONENT_TYPE, DESIGN_RECIPE, or TOPOLOGY nodes in graph for goal: {goal!r}"
+        )
         return []
 
     goal_lower = goal.lower()
@@ -68,7 +105,7 @@ def map_goal_to_nodes(goal: str, graph: KnowledgeGraph) -> list[KGNode]:
     exact = [n for n in candidates if n.label.lower() == goal_lower]
     if exact:
         logger.debug(f"Goal {goal!r}: Strategy 1 matched {len(exact)} node(s)")
-        return exact
+        return _include_topology_blocks(exact, graph)
 
     # ── Strategy 2: all words present ────────────────────────────────────────
     all_words = [
@@ -77,7 +114,7 @@ def map_goal_to_nodes(goal: str, graph: KnowledgeGraph) -> list[KGNode]:
     ]
     if all_words:
         logger.debug(f"Goal {goal!r}: Strategy 2 matched {len(all_words)} node(s)")
-        return all_words
+        return _include_topology_blocks(all_words, graph)
 
     # ── Strategy 3: any word (len > 3) present, ranked, top 5 ───────────────
     significant_words = [w for w in words if len(w) > 3]
@@ -94,7 +131,52 @@ def map_goal_to_nodes(goal: str, graph: KnowledgeGraph) -> list[KGNode]:
             logger.debug(
                 f"Goal {goal!r}: Strategy 3 matched {len(scored)} node(s), returning top {len(top5)}"
             )
-            return top5
+            return _include_topology_blocks(top5, graph)
 
     logger.warning(f"No KG nodes found for goal: {goal!r}")
     return []
+
+
+def map_goal_topology_to_nodes(
+    goal_topology: str | None,
+    graph: KnowledgeGraph,
+) -> list[KGNode]:
+    """Resolve a topology classifier slug to TOPOLOGY start nodes.
+
+    Uses the canonical node id ``topology:<slug>`` from the formal topology
+    library. When found, FUNCTIONAL_BLOCK children are co-started via
+    ``_include_topology_blocks``.
+
+    Args:
+        goal_topology: Slug from intent (e.g. ``buck_converter``), or None.
+        graph: KnowledgeGraph to search.
+
+    Returns:
+        Start nodes for traversal; empty when slug is absent or unmatched.
+    """
+    if not goal_topology:
+        return []
+
+    slug = goal_topology.strip().lower()
+    if not slug:
+        return []
+
+    node = graph.get_node(f"topology:{slug}")
+    if node is None or node.node_type != KGNodeType.TOPOLOGY:
+        logger.warning(f"No TOPOLOGY node for goal_topology={goal_topology!r}")
+        return []
+
+    logger.debug(f"goal_topology {goal_topology!r} matched {node.id}")
+    return _include_topology_blocks([node], graph)
+
+
+def merge_start_nodes(*groups: list[KGNode]) -> list[KGNode]:
+    """Dedupe start nodes by id while preserving first-seen order."""
+    merged: list[KGNode] = []
+    seen: set[str] = set()
+    for group in groups:
+        for node in group:
+            if node.id not in seen:
+                merged.append(node)
+                seen.add(node.id)
+    return merged

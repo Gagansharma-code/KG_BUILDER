@@ -100,6 +100,8 @@ def _empty_subgraph(design_methodology: str) -> DesignSubgraph:
         design_rules=[],
         placement_rules=[],
         routing_hints=[],
+        topologies=[],
+        functional_blocks=[],
         design_methodology=design_methodology,
         path_confidences={},
         query_depth=0,
@@ -136,10 +138,18 @@ def query_graph(
         max_depth = config.kg_traversal_max_depth
         min_confidence = config.kg_min_edge_confidence
 
-        # Step 1: map intent goal → start nodes
-        start_nodes = goal_mapper.map_goal_to_nodes(intent.goal, graph)
+        # Step 1: map intent goal and optional topology slug → start nodes
+        goal_starts = goal_mapper.map_goal_to_nodes(intent.goal, graph)
+        topology_starts = goal_mapper.map_goal_topology_to_nodes(
+            intent.goal_topology,
+            graph,
+        )
+        start_nodes = goal_mapper.merge_start_nodes(goal_starts, topology_starts)
         if not start_nodes:
-            logger.warning(f"No KG nodes found for goal: {intent.goal!r}")
+            logger.warning(
+                f"No KG nodes found for goal={intent.goal!r} "
+                f"goal_topology={intent.goal_topology!r}"
+            )
             return _empty_subgraph(methodology_str)
 
         # Step 2: load the active methodology node from KG-5

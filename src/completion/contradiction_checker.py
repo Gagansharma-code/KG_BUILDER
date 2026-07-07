@@ -72,4 +72,21 @@ def run_rule_checker(
                 detected_by="rule_checker",
             ))
 
+    # Rule 4 — Protection requirements without a resolvable functional block
+    for requirement in getattr(intent, "protection_requirements", []) or []:
+        contradictions.append(Contradiction(
+            constraint_a=f"Protection required: {requirement.kind}",
+            constraint_b="No matching functional_block in topology library",
+            description=(
+                f"Protection ask recorded from prompt ({requirement.raw_text!r}) "
+                "but no topology-library block is available to satisfy it yet"
+            ),
+            severity="WARNING",
+            suggested_resolution=(
+                "Add a matching functional block to the topology library or "
+                "revise the protection requirement"
+            ),
+            detected_by="rule_checker",
+        ))
+
     return contradictions

@@ -311,6 +311,7 @@ class TestGraphBuilder:
     def test_graph_builder_handles_duplicate_subjects(self) -> None:
         """Test graph_builder handles duplicate subjects (same node updated, not duplicated)."""
         graph = KnowledgeGraph()
+        base_nodes = graph.stats()["node_count"]
         triples = [
             Triple(
                 subject="Resistor",
@@ -341,9 +342,9 @@ class TestGraphBuilder:
         # Should have 2 edges
         assert result.edges_created == 2
 
-        # Verify only one Resistor node
+        # Verify graph grew by exactly the created nodes (no duplicate Resistor)
         stats = graph.stats()
-        assert stats["node_count"] == 3
+        assert stats["node_count"] == base_nodes + 3
 
     def test_graph_builder_creates_physics_concept_nodes(self) -> None:
         """Test graph_builder creates nodes with KGNodeType.PHYSICS_CONCEPT."""

@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from src.knowledge_graph import KnowledgeGraph, NodeNotFoundError
+from src.knowledge_graph.backends.networkx_backend import NetworkXGraphBackend
 from src.knowledge_graph.validator import validate
 from src.schemas.datasheet import ExtractionMethod
 from src.schemas.kg import (
@@ -63,6 +64,7 @@ class TestKnowledgeGraphNodes:
         """Test add_node twice with same id updates node, does not create duplicate."""
         kg = KnowledgeGraph()
         kg.add_node(sample_node)
+        base_after_first = len(kg._graph.nodes)
 
         # Create a node with same ID but different label
         updated_node = KGNode(
@@ -78,8 +80,8 @@ class TestKnowledgeGraphNodes:
 
         kg.add_node(updated_node)
 
-        # Should only have one node
-        assert len(kg._graph.nodes) == 1
+        # Should not create a duplicate node
+        assert len(kg._graph.nodes) == base_after_first
 
         # Retrieved node should have updated label
         retrieved = kg.get_node(sample_node.id)
@@ -176,10 +178,11 @@ class TestKnowledgeGraphEdges:
         kg = KnowledgeGraph()
         kg.add_node(source_node)
         kg.add_node(target_node)
+        base_edges = len(kg._graph.edges)
 
         kg.add_edge(sample_edge)  # Should not raise
 
-        assert len(kg._graph.edges) == 1
+        assert len(kg._graph.edges) == base_edges + 1
 
 
 # =============================================================================
@@ -339,9 +342,9 @@ class TestGraphMLSerialization:
     """Tests for GraphML save/load operations."""
 
     @pytest.fixture
-    def five_node_graph(self) -> KnowledgeGraph:
-        """Create a graph with 5 nodes and 4 edges."""
-        kg = KnowledgeGraph()
+    def five_node_graph(self) -> NetworkXGraphBackend:
+        """Create a graph with 5 nodes and 4 edges (no topology bootstrap)."""
+        kg = NetworkXGraphBackend()
         now = datetime.now(timezone.utc).isoformat()
 
         # Create 5 nodes across different layers
@@ -451,7 +454,8 @@ class TestGraphMLSerialization:
         assert save_path.exists()
 
         # Load
-        loaded = KnowledgeGraph.load(save_path)
+        # Load without re-running KnowledgeGraph bootstrap on top of file contents
+        loaded = NetworkXGraphBackend.load(save_path)
 
         # Verify node count
         assert len(loaded._graph.nodes) == 5
@@ -493,6 +497,7 @@ class TestGraphStats:
     def test_stats_returns_correct_node_count(self) -> None:
         """Test stats() returns correct node_count."""
         kg = KnowledgeGraph()
+        base_nodes = kg.stats()["node_count"]
         now = datetime.now(timezone.utc).isoformat()
 
         for i in range(5):
@@ -509,11 +514,12 @@ class TestGraphStats:
             kg.add_node(node)
 
         stats = kg.stats()
-        assert stats["node_count"] == 5
+        assert stats["node_count"] == base_nodes + 5
 
     def test_stats_returns_correct_edge_count(self) -> None:
         """Test stats() returns correct edge_count."""
         kg = KnowledgeGraph()
+        base_edges = kg.stats()["edge_count"]
         now = datetime.now(timezone.utc).isoformat()
 
         # Create 3 nodes
@@ -553,11 +559,12 @@ class TestGraphStats:
         kg.add_edge(edge2)
 
         stats = kg.stats()
-        assert stats["edge_count"] == 2
+        assert stats["edge_count"] == base_edges + 2
 
     def test_stats_returns_layer_counts(self) -> None:
         """Test stats() returns correct nodes_layer_N counts."""
         kg = KnowledgeGraph()
+        base_stats = kg.stats()
         now = datetime.now(timezone.utc).isoformat()
 
         # Create nodes in different layers
@@ -583,11 +590,11 @@ class TestGraphStats:
             kg.add_node(node)
 
         stats = kg.stats()
-        assert stats["nodes_layer_1"] == 1
-        assert stats["nodes_layer_2"] == 2
-        assert stats["nodes_layer_3"] == 1
-        assert stats["nodes_layer_4"] == 1
-        assert stats["nodes_layer_5"] == 0
+        assert stats["nodes_layer_1"] == base_stats.get("nodes_layer_1", 0) + 1
+        assert stats["nodes_layer_2"] == base_stats.get("nodes_layer_2", 0) + 2
+        assert stats["nodes_layer_3"] == base_stats.get("nodes_layer_3", 0) + 1
+        assert stats["nodes_layer_4"] == base_stats.get("nodes_layer_4", 0) + 1
+        assert stats["nodes_layer_5"] == base_stats.get("nodes_layer_5", 0)
 
 
 # =============================================================================
