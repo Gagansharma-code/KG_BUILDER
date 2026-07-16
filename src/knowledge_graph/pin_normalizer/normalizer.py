@@ -5,6 +5,9 @@ Coordinates the three-tier normalization process:
 2. Context resolution (medium confidence)
 3. LLM fallback (variable confidence)
 
+Normalizes the reset-state function into ``default_function`` / ``normalized_function``
+and normalizes *every* ``AlternateFunction`` without collapsing multi-function pins.
+
 Never mutates input objects. Always returns new ComponentDatasheets with
 model_copy() applied to update pins.
 """
@@ -12,12 +15,19 @@ model_copy() applied to update pins.
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from src.knowledge_graph.pin_normalizer.context_resolver import resolve_with_context
 from src.knowledge_graph.pin_normalizer.dictionary import normalize_from_dictionary
 from src.knowledge_graph.pin_normalizer.llm_fallback import normalize_via_llm
-from src.schemas.datasheet import CANONICAL_TO_ROLE, ComponentDatasheet, PinDefinition, PinRole
+from src.schemas.datasheet import (
+    CANONICAL_TO_ROLE,
+    AlternateFunction,
+    ComponentDatasheet,
+    PinDefinition,
+    PinRole,
+)
 
 if TYPE_CHECKING:
     from src.config import Config
@@ -28,13 +38,66 @@ logger = logging.getLogger(__name__)
 DICTIONARY_CONFIDENCE = 1.0
 CONTEXT_CONFIDENCE = 0.90
 
+# Leading peripheral token on MCU AF names: SPI2_MOSI, TIM3_CH2, I2C1_SMBA, …
+_PERIPHERAL_PREFIX_RE = re.compile(
+    r"^(?P<periph>"
+    r"(?:SPI|I2C|USART|UART|TIM|CAN|USB|ADC|DAC|SDIO|SAI|QUADSPI|LPUART)\d*"
+    r")_",
+    re.IGNORECASE,
+)
+
+
+def _infer_peripheral(af_name: str) -> Optional[str]:
+    """Infer peripheral block from an AF name like ``SPI2_MOSI`` → ``SPI2``."""
+    if not af_name:
+        return None
+    match = _PERIPHERAL_PREFIX_RE.match(af_name.strip())
+    if match is None:
+        return None
+    return match.group("periph").upper()
+
+
+def _normalize_name(
+    raw_name: str,
+    adjacent_pin_names: list[str],
+    config: Config,
+    *,
+    allow_llm: bool = True,
+) -> Tuple[Optional[str], float, str]:
+    """Normalize a function name through dictionary → context → optional LLM.
+
+    For AF-style names (``SPI2_MOSI``), also tries the trailing token after ``_``
+    against the dictionary so multiplexed labels still map to canonical roles.
+    """
+    if not raw_name:
+        return None, 0.0, "empty"
+
+    canonical = normalize_from_dictionary(raw_name)
+    if canonical is not None:
+        return canonical, DICTIONARY_CONFIDENCE, "dictionary"
+
+    if "_" in raw_name:
+        suffix = raw_name.rsplit("_", 1)[-1]
+        canonical = normalize_from_dictionary(suffix)
+        if canonical is not None:
+            return canonical, DICTIONARY_CONFIDENCE, "dictionary"
+
+    canonical = resolve_with_context(raw_name, adjacent_pin_names)
+    if canonical is not None:
+        return canonical, CONTEXT_CONFIDENCE, "context"
+
+    if allow_llm:
+        return normalize_via_llm(raw_name, config)
+
+    return None, 0.0, "unresolved"
+
 
 def _normalize_single_pin(
     pin: PinDefinition,
     adjacent_pin_names: list[str],
     config: Config,
 ) -> Tuple[Optional[str], float, str]:
-    """Normalize a single pin through all three tiers.
+    """Normalize a pin's reset-state name (``raw_name``) through all three tiers.
 
     Args:
         pin: The PinDefinition to normalize
@@ -44,21 +107,38 @@ def _normalize_single_pin(
     Returns:
         Tuple of (canonical, confidence, method)
     """
-    raw_name = pin.raw_name
+    return _normalize_name(pin.raw_name, adjacent_pin_names, config, allow_llm=True)
 
-    # Tier 1: Dictionary lookup
-    canonical = normalize_from_dictionary(raw_name)
-    if canonical is not None:
-        return canonical, DICTIONARY_CONFIDENCE, "dictionary"
 
-    # Tier 2: Context resolution
-    canonical = resolve_with_context(raw_name, adjacent_pin_names)
-    if canonical is not None:
-        return canonical, CONTEXT_CONFIDENCE, "context"
+def _normalize_alternate_functions(
+    alternate_functions: list[AlternateFunction],
+    adjacent_pin_names: list[str],
+    config: Config,
+) -> list[AlternateFunction]:
+    """Normalize every alternate function; never drop entries.
 
-    # Tier 3: LLM fallback
-    canonical, confidence, method = normalize_via_llm(raw_name, config)
-    return canonical, confidence, method
+    When a name cannot be mapped to a canonical role, the original ``name`` is
+    kept so multiplexed AF lists always flow through to the KG unchanged in
+    cardinality.
+    """
+    normalized: list[AlternateFunction] = []
+    for af in alternate_functions:
+        canonical, _confidence, _method = _normalize_name(
+            af.name,
+            adjacent_pin_names,
+            config,
+            allow_llm=False,
+        )
+        resolved_name = canonical if canonical is not None else af.name
+        peripheral = af.peripheral or _infer_peripheral(af.name)
+        normalized.append(
+            AlternateFunction(
+                name=resolved_name,
+                af_index=af.af_index,
+                peripheral=peripheral,
+            )
+        )
+    return normalized
 
 
 def _normalize_pins_in_datasheet(
@@ -67,9 +147,12 @@ def _normalize_pins_in_datasheet(
 ) -> ComponentDatasheet:
     """Normalize all pins in a single ComponentDatasheet.
 
-    Processes each pin through dictionary → context → LLM tiers.
-    Pins that fail all tiers get normalized_function=None and trigger
-    a review flag.
+    For each pin:
+    - ``default_function`` = canonical reset-state (from ``raw_name``)
+    - ``normalized_function`` = ``default_function`` (active function for downstream)
+    - every ``alternate_functions`` entry is normalized; none are dropped
+    Pins that fail reset-state normalization get ``default_function=None`` /
+    ``normalized_function=None`` and a review flag.
 
     Args:
         datasheet: ComponentDatasheet to process
@@ -88,40 +171,55 @@ def _normalize_pins_in_datasheet(
         # Get adjacent pins (all other pins)
         adjacent = [p for p in all_pin_names if p != pin.raw_name]
 
-        # Normalize through all tiers
+        # Normalize reset-state through all tiers
         canonical, confidence, method = _normalize_single_pin(pin, adjacent, config)
 
+        normalized_afs = _normalize_alternate_functions(
+            list(pin.alternate_functions or []),
+            adjacent,
+            config,
+        )
+
         if canonical is not None:
-            # Successful normalization
             pin_role: Optional[PinRole] = CANONICAL_TO_ROLE.get(canonical)
-            new_pin = pin.model_copy(update={
-                "normalized_function": canonical,
-                "normalization_confidence": confidence,
-                "pin_role": pin_role,
-            })
+            new_pin = pin.model_copy(
+                update={
+                    "default_function": canonical,
+                    "normalized_function": canonical,
+                    "normalization_confidence": confidence,
+                    "normalization_method": method,
+                    "pin_role": pin_role,
+                    "alternate_functions": normalized_afs,
+                }
+            )
             normalized_pins.append(new_pin)
             logger.debug(
                 f"Normalized pin {pin.pin_number} ({pin.raw_name}): "
-                f"{canonical} via {method}"
+                f"default={canonical} via {method}, "
+                f"{len(normalized_afs)} alternate_functions preserved"
             )
         else:
-            # All tiers failed
-            new_pin = pin.model_copy(update={
-                "normalized_function": None,
-                "normalization_confidence": confidence,  # Usually 0.0
-            })
+            # Reset-state failed — still preserve / normalize AFs
+            new_pin = pin.model_copy(
+                update={
+                    "default_function": None,
+                    "normalized_function": None,
+                    "normalization_confidence": confidence,  # Usually 0.0
+                    "alternate_functions": normalized_afs,
+                }
+            )
             normalized_pins.append(new_pin)
 
-            # Add review flag
             flag = f"Pin {pin.pin_number} ({pin.raw_name}): normalization failed"
             review_flags.append(flag)
             logger.warning(flag)
 
-    # Create new datasheet with updated pins and review flags
-    return datasheet.model_copy(update={
-        "pins": normalized_pins,
-        "review_flags": review_flags,
-    })
+    return datasheet.model_copy(
+        update={
+            "pins": normalized_pins,
+            "review_flags": review_flags,
+        }
+    )
 
 
 def normalize_pins(
@@ -130,15 +228,19 @@ def normalize_pins(
 ) -> list[ComponentDatasheet]:
     """Normalize pins across multiple ComponentDatasheets.
 
-    Returns new list of ComponentDatasheets with normalized_function and
-    normalization_confidence populated on every PinDefinition.
+    Returns new list of ComponentDatasheets with ``default_function``,
+    ``normalized_function``, ``normalization_confidence``, and normalized
+    ``alternate_functions`` populated on every PinDefinition.
     Never raises. Pins that cannot be normalized get normalized_function=None
     and a review_flag added to the parent ComponentDatasheet.
 
-    Three-tier normalization process per pin:
+    Three-tier normalization process per reset-state name:
     1. Dictionary lookup (confidence=1.0)
     2. Context resolution (confidence=0.90)
     3. LLM fallback (variable confidence)
+
+    Alternate functions are normalized via dictionary/context only (no LLM)
+    and are never dropped.
 
     Args:
         datasheets: List of ComponentDatasheets to process

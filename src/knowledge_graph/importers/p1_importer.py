@@ -104,12 +104,20 @@ def _create_pin_nodes(
         properties: dict[str, Any] = {
             "pin_number": pin.pin_number,
             "raw_name": pin.raw_name,
-            "alternate_functions": pin.alternate_functions or [],
         }
 
         # Only add normalized_function if present
         if pin.normalized_function is not None:
             properties["normalized_function"] = pin.normalized_function
+
+        if pin.default_function:
+            properties["default_function"] = pin.default_function
+
+        if pin.alternate_functions:
+            # Structured AFs as plain dicts (JSON-serializable KG property values)
+            properties["alternate_functions"] = [
+                af.model_dump() for af in pin.alternate_functions
+            ]
 
         if pin.pin_role is not None:
             properties["pin_role"] = pin.pin_role.value

@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from src.schemas.datasheet import (
     AbsoluteMaxRating,
+    AlternateFunction,
     ComponentDatasheet,
     ElectricalParameter,
     ExtractionMethod,
@@ -272,6 +273,22 @@ class TestAbsoluteMaxRating:
         assert restored.value.max_val == valid_absolute_max_rating.value.max_val
 
 
+class TestAlternateFunction:
+    """Tests for AlternateFunction model."""
+
+    def test_alternate_function_model(self) -> None:
+        """Instantiate AlternateFunction and assert field schema."""
+        af = AlternateFunction(name="SPI2_MOSI", af_index=5, peripheral="SPI2")
+        assert af.name == "SPI2_MOSI"
+        assert af.af_index == 5
+        assert af.peripheral == "SPI2"
+
+        minimal = AlternateFunction(name="UART_TX")
+        assert minimal.name == "UART_TX"
+        assert minimal.af_index is None
+        assert minimal.peripheral is None
+
+
 class TestPinDefinition:
     """Tests for PinDefinition model."""
 
@@ -285,11 +302,16 @@ class TestPinDefinition:
             normalization_method="exact_match",
             pin_type="io",
             description="General purpose I/O with multiplexed functions",
-            alternate_functions=["UART_TX", "SPI_MOSI"],
+            alternate_functions=[
+                AlternateFunction(name="UART_TX"),
+                AlternateFunction(name="SPI_MOSI"),
+            ],
             source_page=8,
         )
         assert pin.pin_number == "5"
         assert len(pin.alternate_functions) == 2
+        assert pin.alternate_functions[0].name == "UART_TX"
+        assert pin.alternate_functions[1].name == "SPI_MOSI"
         assert pin.normalized_function == "GPIO0"
 
     def test_json_round_trip(self) -> None:
@@ -554,7 +576,7 @@ class TestComponentDatasheet:
         assert ds.review_flags == []
 
     def test_default_pipeline_version(self) -> None:
-        """Test that pipeline_version defaults to '1.0'."""
+        """Test that pipeline_version defaults to '2.0'."""
         now = datetime.now(timezone.utc).isoformat()
         ds = ComponentDatasheet(
             component_id="TEST",
@@ -566,7 +588,7 @@ class TestComponentDatasheet:
             extraction_confidence=0.95,
             created_at=now,
         )
-        assert ds.pipeline_version == "1.0"
+        assert ds.pipeline_version == "2.0"
 
     def test_default_review_required_false(self) -> None:
         """Test that review_required defaults to False."""
