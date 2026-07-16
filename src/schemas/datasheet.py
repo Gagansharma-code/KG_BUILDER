@@ -18,7 +18,7 @@ Changes to these models require:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -28,6 +28,10 @@ class TableSectionType(str, Enum):
 
     Used by Phase 1 to label extracted table crops based on
     section heading text and positional heuristics.
+
+    Phase 0 decision: do NOT add THERMAL_CHARACTERISTICS. Thermal /
+    package-thermal tables route to ELECTRICAL_CHARACTERISTICS via
+    section_classifier keyword patterns (see docs/PHASE0_SCHEMA_IMPACT.md).
     """
 
     ELECTRICAL_CHARACTERISTICS = "electrical_characteristics"
@@ -273,6 +277,25 @@ class AbsoluteMaxRating(BaseModel):
     )
 
 
+class AlternateFunction(BaseModel):
+    """One multiplexed alternate function on a pin (MCU AF tables, etc.).
+
+    Distinct from PinDefinition.default_function, which is the reset-state
+    function. af_index / peripheral are optional because many datasheets
+    only print the function name.
+    """
+
+    name: str = Field(description="Alternate function name (e.g., 'SPI2_MOSI', 'TIM3_CH2')")
+    af_index: Optional[int] = Field(
+        default=None,
+        description="Alternate-function index when datasheet uses AF0–AF15 style columns",
+    )
+    peripheral: Optional[str] = Field(
+        default=None,
+        description="Owning peripheral block if known (e.g., 'SPI2', 'TIM3', 'I2C1')",
+    )
+
+
 class PinDefinition(BaseModel):
     """Single pin definition from pinout table.
 
@@ -317,13 +340,45 @@ class PinDefinition(BaseModel):
     description: Optional[str] = Field(
         default=None, description="Additional description from datasheet"
     )
-    alternate_functions: list[str] = Field(
+    default_function: Optional[str] = Field(
+        default=None,
+        description=(
+            "Reset-state / default pin function from the datasheet, distinct from "
+            "multiplexed alternate_functions"
+        ),
+    )
+    alternate_functions: list[AlternateFunction] = Field(
         default_factory=list,
-        description="Alternate functions for multiplexed pins (e.g., ['UART_TX', 'SPI_MOSI'])",
+        description=(
+            "Structured alternate functions for multiplexed pins "
+            "(name + optional af_index / peripheral)"
+        ),
     )
     source_page: int = Field(
         default=0, ge=0, description="Page number where this pin was defined"
     )
+
+
+class ApplicationCircuitComponent(BaseModel):
+    """A passive component from the typical application circuit."""
+
+    ref_designator: str = Field(description='Reference designator (e.g., "C1", "R1", "L1")')
+    component_type: str = Field(
+        description='Component type (e.g., "capacitor", "resistor", "inductor")'
+    )
+    value: Optional[str] = Field(
+        default=None, description='Component value if known (e.g., "100nF", "10kΩ")'
+    )
+    connected_to_pin: Optional[str] = Field(
+        default=None, description="Normalized pin name this component connects to"
+    )
+    net: Optional[str] = Field(
+        default=None, description='Net name if known (e.g., "VIN", "GND", "FB")'
+    )
+    source: Literal["caption_text", "vlm", "table_text"] = Field(
+        description="Provenance of this extracted circuit component"
+    )
+    confidence: float = Field(description="Extraction confidence for this component")
 
 
 class PlacementConstraint(BaseModel):
@@ -440,6 +495,21 @@ class ComponentDatasheet(BaseModel):
         default_factory=list,
         description="Phase 5: layout recommendation constraints",
     )
+    application_circuit_components: list[ApplicationCircuitComponent] = Field(
+        default_factory=list,
+        description=(
+            "Passive components extracted from typical-application-circuit "
+            "figures/captions (Diagram relevance analysis)"
+        ),
+    )
+    thermal_pad_connect_to: Optional[str] = Field(
+        default=None,
+        description='Thermal/exposed pad connection recommendation (e.g., "GND", "VCC", "float")',
+    )
+    thermal_via_count_recommended: Optional[int] = Field(
+        default=None,
+        description="Recommended thermal via count under exposed pad, if stated",
+    )
 
     # Metadata
     extraction_method: ExtractionMethod = Field(
@@ -459,7 +529,7 @@ class ComponentDatasheet(BaseModel):
         description="List of specific flags indicating review reasons",
     )
     pipeline_version: str = Field(
-        default="1.0",
+        default="2.0",
         description="Version of extraction pipeline that produced this output",
     )
     created_at: str = Field(
@@ -506,7 +576,9 @@ __all__ = [
     "ExtractedValue",
     "ElectricalParameter",
     "AbsoluteMaxRating",
+    "AlternateFunction",
     "PinDefinition",
+    "ApplicationCircuitComponent",
     "PlacementConstraint",
     "ComponentDatasheet",
 ]
