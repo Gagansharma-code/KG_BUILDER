@@ -135,14 +135,26 @@
           "pin_number": "5",
           "pin_name": "SDA",
           "pin_type": "digital_io",
-          "alternate_functions": ["I2C_SDA"],
+          "alternate_functions": [
+            {
+              "name": "I2C_SDA",
+              "af_index": null,
+              "peripheral": "I2C"
+            }
+          ],
           "description": "I2C data"
         },
         {
           "pin_number": "6",
           "pin_name": "SCL",
           "pin_type": "digital_input",
-          "alternate_functions": ["I2C_SCL"],
+          "alternate_functions": [
+            {
+              "name": "I2C_SCL",
+              "af_index": null,
+              "peripheral": "I2C"
+            }
+          ],
           "description": "I2C clock"
         },
         {

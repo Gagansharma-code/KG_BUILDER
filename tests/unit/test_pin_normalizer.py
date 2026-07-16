@@ -20,6 +20,7 @@ from src.knowledge_graph.pin_normalizer.dictionary import (
 )
 from src.knowledge_graph.pin_normalizer.llm_fallback import normalize_via_llm
 from src.schemas.datasheet import (
+    AlternateFunction,
     ComponentDatasheet,
     ExtractionMethod,
     PinDefinition,
@@ -477,4 +478,79 @@ class TestNormalizePinsIntegration:
 
         result = normalize_pins([ds], mock_config)
 
+        assert len(result) == 1
         assert len(result[0].pins) == 0
+
+
+class TestMultiFunctionPinNormalization:
+    """Multi-function / MCU mux pin normalization (Phase 0 schema cleanup)."""
+
+    def _mcu_mux_datasheet(self) -> ComponentDatasheet:
+        return ComponentDatasheet(
+            component_id="STM32_MUX",
+            manufacturer="ST",
+            description="MCU with multiplexed pin",
+            package="LQFP-64",
+            source_pdf_hash="hash_mux",
+            extraction_method=ExtractionMethod.P1_VECTOR,
+            extraction_confidence=0.97,
+            pins=[
+                PinDefinition(
+                    pin_number="5",
+                    raw_name="GPIO5",
+                    pin_type="io",
+                    alternate_functions=[
+                        AlternateFunction(
+                            name="SPI2_MOSI", af_index=5, peripheral="SPI2"
+                        ),
+                        AlternateFunction(
+                            name="TIM3_CH2", af_index=2, peripheral="TIM3"
+                        ),
+                        AlternateFunction(name="I2C1_SMBA", af_index=4),
+                        AlternateFunction(
+                            name="USART1_TX", af_index=7, peripheral="USART1"
+                        ),
+                    ],
+                ),
+            ],
+            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        )
+
+    def test_normalize_pin_with_multiple_alternate_functions(
+        self, mock_config: Config
+    ) -> None:
+        """MCU-style pin with 4 AFs — all preserved and normalized where possible."""
+        result = normalize_pins([self._mcu_mux_datasheet()], mock_config)
+        pin = result[0].pins[0]
+
+        assert len(pin.alternate_functions) == 4
+        assert [af.af_index for af in pin.alternate_functions] == [5, 2, 4, 7]
+
+        by_index = {af.af_index: af for af in pin.alternate_functions}
+
+        # Suffix MOSI / TX map via dictionary; unknown labels keep original name
+        assert by_index[5].name == "SPI_DATA_IN"
+        assert by_index[5].peripheral == "SPI2"
+        assert by_index[2].name == "TIM3_CH2"
+        assert by_index[2].peripheral == "TIM3"
+        assert by_index[4].name == "I2C1_SMBA"
+        assert by_index[4].peripheral == "I2C1"  # inferred
+        assert by_index[7].name == "UART_TRANSMIT"
+        assert by_index[7].peripheral == "USART1"
+
+        # Input not mutated
+        original = self._mcu_mux_datasheet().pins[0]
+        assert original.alternate_functions[0].name == "SPI2_MOSI"
+
+    def test_default_function_set_correctly(self, mock_config: Config) -> None:
+        """default_function is set from reset-state raw_name."""
+        result = normalize_pins([self._mcu_mux_datasheet()], mock_config)
+        pin = result[0].pins[0]
+        assert pin.default_function == "GPIO"
+
+    def test_normalized_function_is_default(self, mock_config: Config) -> None:
+        """normalized_function mirrors default_function (active = reset-state)."""
+        result = normalize_pins([self._mcu_mux_datasheet()], mock_config)
+        pin = result[0].pins[0]
+        assert pin.normalized_function == pin.default_function
+        assert pin.normalized_function == "GPIO"

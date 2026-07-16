@@ -24,6 +24,7 @@ from src.knowledge_graph.importers.p1_importer import (
     import_datasheet,
 )
 from src.schemas.datasheet import (
+    AlternateFunction,
     ComponentDatasheet,
     ElectricalParameter,
     ExtractionMethod,
@@ -246,6 +247,65 @@ class TestImportSingleDatasheet:
         assert pin1.properties["raw_name"] == "OUT1"
         assert pin1.properties["pin_type"] == "output"
         assert pin1.label == "OUT1"
+        # Empty AF lists are omitted (not stored as AlternateFunction models)
+        assert "alternate_functions" not in pin1.properties
+
+    def test_p1_importer_serializes_alternate_functions(self, mock_config) -> None:
+        """Structured AFs and default_function are JSON-serializable on pin nodes."""
+        datasheet = ComponentDatasheet(
+            component_id="STM32_AF",
+            manufacturer="ST",
+            description="MCU pin with mux",
+            package="LQFP-64",
+            source_pdf_hash="af_hash",
+            extraction_method=ExtractionMethod.P1_VECTOR,
+            extraction_confidence=0.95,
+            pins=[
+                PinDefinition(
+                    pin_number="5",
+                    raw_name="GPIO5",
+                    pin_type="io",
+                    default_function="GPIO",
+                    normalized_function="GPIO",
+                    alternate_functions=[
+                        AlternateFunction(
+                            name="SPI_DATA_IN", af_index=5, peripheral="SPI2"
+                        ),
+                        AlternateFunction(
+                            name="UART_TRANSMIT", af_index=7, peripheral="USART1"
+                        ),
+                    ],
+                ),
+            ],
+            created_at="2024-01-15T10:30:00Z",
+        )
+
+        graph = KnowledgeGraph()
+        result1 = import_datasheet(datasheet, graph, mock_config)
+        assert result1.success
+
+        pin_node = graph.get_node("pin:STM32_AF:5")
+        assert pin_node is not None
+        assert pin_node.properties["default_function"] == "GPIO"
+        assert pin_node.properties["alternate_functions"] == [
+            {"name": "SPI_DATA_IN", "af_index": 5, "peripheral": "SPI2"},
+            {"name": "UART_TRANSMIT", "af_index": 7, "peripheral": "USART1"},
+        ]
+        # Plain dicts — GraphML/JSON friendly, not AlternateFunction instances
+        assert all(
+            isinstance(af, dict) for af in pin_node.properties["alternate_functions"]
+        )
+
+        # Idempotent re-import: same pin id updated, node count unchanged
+        initial_count = graph.stats()["node_count"]
+        result2 = import_datasheet(datasheet, graph, mock_config)
+        assert result2.skipped_duplicates >= 1
+        assert graph.stats()["node_count"] == initial_count
+        assert graph.get_node("pin:STM32_AF:5") is not None
+        assert graph.get_node("pin:STM32_AF:5").properties["alternate_functions"] == [
+            {"name": "SPI_DATA_IN", "af_index": 5, "peripheral": "SPI2"},
+            {"name": "UART_TRANSMIT", "af_index": 7, "peripheral": "USART1"},
+        ]
 
     def test_import_creates_correct_number_of_electrical_property_nodes(
         self, datasheet_with_electrical_params, mock_config
