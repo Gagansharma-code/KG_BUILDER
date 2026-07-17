@@ -1,0 +1,277 @@
+{
+  "component_id": "IRLZ44N",
+  "manufacturer": "Infineon Technologies",
+  "package": "TO-220AB",
+  "datasheet_version": "IRLZ44NPbF",
+  "extraction_timestamp": "2026-07-17T08:00:57Z",
+  "sections": [
+    {
+      "section_type": "absolute_maximum_ratings",
+      "section_heading": "Absolute Maximum Ratings",
+      "page_range": [
+        1,
+        1
+      ],
+      "table_confidence": 0.99,
+      "parameters": [],
+      "abs_max_ratings": [
+        {
+          "name": "VDS",
+          "max_value": {
+            "raw_text": "55 V",
+            "value": 55.0,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": "Drain-to-Source voltage"
+        },
+        {
+          "name": "VGS",
+          "max_value": {
+            "raw_text": "\u00b116 V",
+            "value": 16.0,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": "Gate-to-Source voltage"
+        },
+        {
+          "name": "ID",
+          "max_value": {
+            "raw_text": "47 A",
+            "value": 47.0,
+            "unit": "A",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "A",
+          "note": "Continuous drain current @ 25\u00b0C"
+        },
+        {
+          "name": "PD",
+          "max_value": {
+            "raw_text": "110 W",
+            "value": 110.0,
+            "unit": "W",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "W",
+          "note": "Power dissipation @ TC=25\u00b0C"
+        },
+        {
+          "name": "TJ",
+          "max_value": {
+            "raw_text": "175 \u00b0C",
+            "value": 175.0,
+            "unit": "\u00b0C",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "\u00b0C",
+          "note": "Operating junction temperature"
+        }
+      ],
+      "pins": []
+    },
+    {
+      "section_type": "electrical_characteristics",
+      "section_heading": "Thermal Resistance / Electrical Characteristics",
+      "page_range": [
+        1,
+        2
+      ],
+      "table_confidence": 0.98,
+      "parameters": [
+        {
+          "parameter_name": "Junction-to-ambient thermal resistance",
+          "symbol": "R\u03b8JA",
+          "conditions": "TO-220AB, typical mounting",
+          "value": {
+            "raw_text": "62 \u00b0C/W",
+            "value": 62.0,
+            "unit": "\u00b0C/W",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 62.0,
+            "max_val": 62.0
+          }
+        },
+        {
+          "parameter_name": "Junction-to-case thermal resistance",
+          "symbol": "R\u03b8JC",
+          "conditions": "Junction-to-case",
+          "value": {
+            "raw_text": "1.4 \u00b0C/W",
+            "value": 1.4,
+            "unit": "\u00b0C/W",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 1.4,
+            "max_val": 1.4
+          }
+        },
+        {
+          "parameter_name": "Case-to-sink thermal resistance",
+          "symbol": "R\u03b8CS",
+          "conditions": "Flat, greased surface",
+          "value": {
+            "raw_text": "0.50 \u00b0C/W",
+            "value": 0.5,
+            "unit": "\u00b0C/W",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 0.5,
+            "max_val": null
+          }
+        },
+        {
+          "parameter_name": "Drain-to-Source breakdown voltage",
+          "symbol": "V(BR)DSS",
+          "conditions": "VGS=0V, ID=250\u00b5A",
+          "value": {
+            "raw_text": "55 V",
+            "value": 55.0,
+            "unit": "V",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": 55.0,
+            "typ_val": 55.0,
+            "max_val": null
+          }
+        },
+        {
+          "parameter_name": "Static drain-to-source on-resistance",
+          "symbol": "RDS(on)",
+          "conditions": "VGS=10V, ID=25A",
+          "value": {
+            "raw_text": "22 m\u03a9",
+            "value": 0.022,
+            "unit": "\u03a9",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 0.022,
+            "max_val": 0.022
+          }
+        },
+        {
+          "parameter_name": "Gate threshold voltage",
+          "symbol": "VGS(th)",
+          "conditions": "VDS=VGS, ID=250\u00b5A",
+          "value": {
+            "raw_text": "1.0 to 2.0 V",
+            "value": 1.5,
+            "unit": "V",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": 1.0,
+            "typ_val": 1.5,
+            "max_val": 2.0
+          }
+        },
+        {
+          "parameter_name": "Total gate charge",
+          "symbol": "Qg",
+          "conditions": "ID=25A, VDS=44V, VGS=5V",
+          "value": {
+            "raw_text": "48 nC",
+            "value": 4.8e-08,
+            "unit": "C",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 4.8e-08,
+            "max_val": 4.8e-08
+          }
+        }
+      ],
+      "abs_max_ratings": [],
+      "pins": []
+    },
+    {
+      "section_type": "pinout",
+      "section_heading": "Pin Assignment TO-220AB",
+      "page_range": [
+        1,
+        1
+      ],
+      "table_confidence": 0.99,
+      "parameters": [],
+      "abs_max_ratings": [],
+      "pins": [
+        {
+          "pin_number": "1",
+          "pin_name": "G",
+          "pin_type": "I",
+          "description": "Gate",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "2",
+          "pin_name": "D",
+          "pin_type": "IO",
+          "description": "Drain (connected to tab)",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "3",
+          "pin_name": "S",
+          "pin_type": "IO",
+          "description": "Source",
+          "alternate_functions": []
+        }
+      ]
+    }
+  ],
+  "pins": [
+    {
+      "pin_number": "1",
+      "pin_name": "G",
+      "pin_type": "I",
+      "description": "Gate",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "2",
+      "pin_name": "D",
+      "pin_type": "IO",
+      "description": "Drain (connected to tab)",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "3",
+      "pin_name": "S",
+      "pin_type": "IO",
+      "description": "Source",
+      "alternate_functions": []
+    }
+  ],
+  "metadata": {
+    "datasheet_id": "IRLZ44NPbF",
+    "revision": "PbF",
+    "date": "2003+",
+    "operating_conditions": "Logic-level gate drive, VGS(th) 1\u20132 V",
+    "gap_coverage": "Gap 5 \u2014 thermal table R\u03b8JA/R\u03b8JC routed as electrical_characteristics",
+    "thermal_pad_connect_to": "D",
+    "footnote_map": {}
+  },
+  "validation": {
+    "passed": true,
+    "errors": [],
+    "warnings": [],
+    "review_required": false
+  }
+}

@@ -1,0 +1,501 @@
+{
+  "component_id": "CC1101",
+  "manufacturer": "Texas Instruments",
+  "package": "QFN-20 (4x4 mm)",
+  "datasheet_version": "SWRS061I",
+  "extraction_timestamp": "2026-07-17T08:00:57Z",
+  "sections": [
+    {
+      "section_type": "absolute_maximum_ratings",
+      "section_heading": "4.1 Absolute Maximum Ratings",
+      "page_range": [
+        8,
+        8
+      ],
+      "table_confidence": 0.98,
+      "parameters": [],
+      "abs_max_ratings": [
+        {
+          "name": "Supply voltage",
+          "max_value": {
+            "raw_text": "3.9 V",
+            "value": 3.9,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": "All supply pins"
+        },
+        {
+          "name": "Voltage on any digital pin",
+          "max_value": {
+            "raw_text": "3.9 V",
+            "value": 3.9,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": null
+        },
+        {
+          "name": "RF input level",
+          "max_value": {
+            "raw_text": "10 dBm",
+            "value": 10.0,
+            "unit": "dBm",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "dBm",
+          "note": "RF_P / RF_N"
+        }
+      ],
+      "pins": []
+    },
+    {
+      "section_type": "electrical_characteristics",
+      "section_heading": "4.5 RF Transmit Section / 4.4 RF Receive",
+      "page_range": [
+        10,
+        14
+      ],
+      "table_confidence": 0.96,
+      "parameters": [
+        {
+          "parameter_name": "Output power",
+          "symbol": "Pout",
+          "conditions": "Programmable max, all bands",
+          "value": {
+            "raw_text": "+12 dBm",
+            "value": 12.0,
+            "unit": "dBm",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 12.0,
+            "max_val": 12.0
+          }
+        },
+        {
+          "parameter_name": "Receiver sensitivity",
+          "symbol": "Sens",
+          "conditions": "0.6 kBaud, 433 MHz, 1% PER",
+          "value": {
+            "raw_text": "-116 dBm",
+            "value": -116.0,
+            "unit": "dBm",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": -116.0,
+            "max_val": null
+          }
+        },
+        {
+          "parameter_name": "Receiver sensitivity",
+          "symbol": "Sens",
+          "conditions": "1.2 kBaud, 868 MHz, 1% PER",
+          "value": {
+            "raw_text": "-112 dBm",
+            "value": -112.0,
+            "unit": "dBm",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": -112.0,
+            "max_val": null
+          }
+        },
+        {
+          "parameter_name": "Phase noise",
+          "symbol": "PN",
+          "conditions": "10 kHz offset (typical RF section)",
+          "value": {
+            "raw_text": "-92 dBc/Hz",
+            "value": -92.0,
+            "unit": "dBc",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": -92.0,
+            "max_val": null
+          }
+        },
+        {
+          "parameter_name": "RX current",
+          "symbol": "IRX",
+          "conditions": "1.2 kBaud, 868 MHz",
+          "value": {
+            "raw_text": "14.7 mA",
+            "value": 0.0147,
+            "unit": "A",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 0.0147,
+            "max_val": null
+          }
+        },
+        {
+          "parameter_name": "Sleep current",
+          "symbol": "Isleep",
+          "conditions": "SLEEP state",
+          "value": {
+            "raw_text": "200 nA",
+            "value": 2e-07,
+            "unit": "A",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 2e-07,
+            "max_val": null
+          }
+        }
+      ],
+      "abs_max_ratings": [],
+      "pins": []
+    },
+    {
+      "section_type": "electrical_characteristics",
+      "section_heading": "Spurious Emissions / Port Characteristics",
+      "page_range": [
+        12,
+        13
+      ],
+      "table_confidence": 0.93,
+      "parameters": [
+        {
+          "parameter_name": "Spurious emissions",
+          "symbol": "Spur",
+          "conditions": "TX, harmonics (ETSI limit reference)",
+          "value": {
+            "raw_text": "-36 dBm",
+            "value": -36.0,
+            "unit": "dBm",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": -36.0,
+            "max_val": -36.0
+          }
+        }
+      ],
+      "abs_max_ratings": [],
+      "pins": []
+    },
+    {
+      "section_type": "pinout",
+      "section_heading": "3 Pin Configuration",
+      "page_range": [
+        6,
+        7
+      ],
+      "table_confidence": 0.97,
+      "parameters": [],
+      "abs_max_ratings": [],
+      "pins": [
+        {
+          "pin_number": "1",
+          "pin_name": "SCLK",
+          "pin_type": "I",
+          "description": "SPI clock",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "2",
+          "pin_name": "SO",
+          "pin_type": "O",
+          "description": "SPI MISO / GDO1",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "3",
+          "pin_name": "GDO2",
+          "pin_type": "O",
+          "description": "Digital output",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "4",
+          "pin_name": "DVDD",
+          "pin_type": "P",
+          "description": "1.8\u20133.6 V digital supply",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "5",
+          "pin_name": "DGUARD",
+          "pin_type": "P",
+          "description": "Digital regulator filter",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "6",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "7",
+          "pin_name": "XOSC_Q1",
+          "pin_type": "I",
+          "description": "Crystal oscillator",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "8",
+          "pin_name": "AVDD",
+          "pin_type": "P",
+          "description": "Analog supply",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "9",
+          "pin_name": "XOSC_Q2",
+          "pin_type": "O",
+          "description": "Crystal oscillator",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "10",
+          "pin_name": "RBIAS",
+          "pin_type": "I",
+          "description": "External bias resistor",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "11",
+          "pin_name": "GUARD",
+          "pin_type": "P",
+          "description": "Power supply isolation",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "12",
+          "pin_name": "CSn",
+          "pin_type": "I",
+          "description": "SPI chip select, active low",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "13",
+          "pin_name": "GDO0",
+          "pin_type": "IO",
+          "description": "Digital I/O / clock out",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "14",
+          "pin_name": "SI",
+          "pin_type": "I",
+          "description": "SPI MOSI",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "15",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Exposed die attach pad",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "16",
+          "pin_name": "RF_P",
+          "pin_type": "RF",
+          "description": "Positive RF I/O",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "17",
+          "pin_name": "RF_N",
+          "pin_type": "RF",
+          "description": "Negative RF I/O",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "18",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "19",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "20",
+          "pin_name": "DCOUPL",
+          "pin_type": "P",
+          "description": "Digital regulator decoupling",
+          "alternate_functions": []
+        }
+      ]
+    }
+  ],
+  "pins": [
+    {
+      "pin_number": "1",
+      "pin_name": "SCLK",
+      "pin_type": "I",
+      "description": "SPI clock",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "2",
+      "pin_name": "SO",
+      "pin_type": "O",
+      "description": "SPI MISO / GDO1",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "3",
+      "pin_name": "GDO2",
+      "pin_type": "O",
+      "description": "Digital output",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "4",
+      "pin_name": "DVDD",
+      "pin_type": "P",
+      "description": "1.8\u20133.6 V digital supply",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "5",
+      "pin_name": "DGUARD",
+      "pin_type": "P",
+      "description": "Digital regulator filter",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "6",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "7",
+      "pin_name": "XOSC_Q1",
+      "pin_type": "I",
+      "description": "Crystal oscillator",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "8",
+      "pin_name": "AVDD",
+      "pin_type": "P",
+      "description": "Analog supply",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "9",
+      "pin_name": "XOSC_Q2",
+      "pin_type": "O",
+      "description": "Crystal oscillator",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "10",
+      "pin_name": "RBIAS",
+      "pin_type": "I",
+      "description": "External bias resistor",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "11",
+      "pin_name": "GUARD",
+      "pin_type": "P",
+      "description": "Power supply isolation",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "12",
+      "pin_name": "CSn",
+      "pin_type": "I",
+      "description": "SPI chip select, active low",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "13",
+      "pin_name": "GDO0",
+      "pin_type": "IO",
+      "description": "Digital I/O / clock out",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "14",
+      "pin_name": "SI",
+      "pin_type": "I",
+      "description": "SPI MOSI",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "15",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Exposed die attach pad",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "16",
+      "pin_name": "RF_P",
+      "pin_type": "RF",
+      "description": "Positive RF I/O",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "17",
+      "pin_name": "RF_N",
+      "pin_type": "RF",
+      "description": "Negative RF I/O",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "18",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "19",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "20",
+      "pin_name": "DCOUPL",
+      "pin_type": "P",
+      "description": "Digital regulator decoupling",
+      "alternate_functions": []
+    }
+  ],
+  "metadata": {
+    "datasheet_id": "SWRS061",
+    "revision": "I",
+    "date": "2019",
+    "operating_conditions": "1.8 V to 3.6 V, -40\u00b0C to 85\u00b0C",
+    "gap_coverage": "Gap 3 \u2014 dBm/dBc RF units and RF section headings",
+    "footnote_map": {}
+  },
+  "validation": {
+    "passed": true,
+    "errors": [],
+    "warnings": [],
+    "review_required": false
+  }
+}

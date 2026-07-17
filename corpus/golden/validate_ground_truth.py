@@ -23,7 +23,7 @@ from src.schemas.datasheet import (  # noqa: E402
     PinDefinition,
 )
 
-EXPECTED_GOLDEN_COUNT: int = 5
+EXPECTED_GOLDEN_COUNT: int = 10
 
 # Known corpus entries; missing files are reported but do not fail validation.
 EXPECTED_GOLDEN_FILES: tuple[str, ...] = (
@@ -32,6 +32,11 @@ EXPECTED_GOLDEN_FILES: tuple[str, ...] = (
     "TI_INA219_v1_ground_truth.json",
     "TI_LM5176_v1_ground_truth.json",
     "TI_TPS62933_v1_ground_truth.json",
+    "ST_STM32F030C8_v1_ground_truth.json",
+    "RPI_RP2040_v1_ground_truth.json",
+    "TI_CC1101_v1_ground_truth.json",
+    "IR_IRLZ44N_v1_ground_truth.json",
+    "TI_TLV755P_v1_ground_truth.json",
 )
 
 

@@ -1,0 +1,1145 @@
+{
+  "component_id": "RP2040",
+  "manufacturer": "Raspberry Pi Ltd",
+  "package": "QFN-56",
+  "datasheet_version": "RP2040 Datasheet Release 2",
+  "extraction_timestamp": "2026-07-17T08:00:57Z",
+  "sections": [
+    {
+      "section_type": "absolute_maximum_ratings",
+      "section_heading": "5.2. Absolute Maximum Ratings",
+      "page_range": [
+        616,
+        616
+      ],
+      "table_confidence": 0.97,
+      "parameters": [],
+      "abs_max_ratings": [
+        {
+          "name": "IOVDD",
+          "max_value": {
+            "raw_text": "3.63 V",
+            "value": 3.63,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": "IO supply"
+        },
+        {
+          "name": "DVDD",
+          "max_value": {
+            "raw_text": "1.21 V",
+            "value": 1.21,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": "Digital core"
+        },
+        {
+          "name": "VREG_VIN",
+          "max_value": {
+            "raw_text": "5.5 V",
+            "value": 5.5,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": "Regulator input"
+        }
+      ],
+      "pins": []
+    },
+    {
+      "section_type": "electrical_characteristics",
+      "section_heading": "5.3. Recommended Operating Conditions",
+      "page_range": [
+        617,
+        620
+      ],
+      "table_confidence": 0.96,
+      "parameters": [
+        {
+          "parameter_name": "IOVDD",
+          "symbol": "IOVDD",
+          "conditions": "Digital IO supply",
+          "value": {
+            "raw_text": "1.8 to 3.3 V",
+            "value": 3.3,
+            "unit": "V",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": 1.8,
+            "typ_val": 3.3,
+            "max_val": 3.3
+          }
+        },
+        {
+          "parameter_name": "fclk_sys",
+          "symbol": "fclk_sys",
+          "conditions": "Max system clock",
+          "value": {
+            "raw_text": "133 MHz",
+            "value": 133000000.0,
+            "unit": "Hz",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 133000000.0,
+            "max_val": 133000000.0
+          }
+        }
+      ],
+      "abs_max_ratings": [],
+      "pins": []
+    },
+    {
+      "section_type": "pinout",
+      "section_heading": "2.2. Pinout",
+      "page_range": [
+        13,
+        18
+      ],
+      "table_confidence": 0.95,
+      "parameters": [],
+      "abs_max_ratings": [],
+      "pins": [
+        {
+          "pin_number": "1",
+          "pin_name": "GPIO0",
+          "pin_type": "IO",
+          "description": "GPIO0 / UART0_TX / I2C0_SDA / SPI0_RX / PWM0_A",
+          "alternate_functions": [
+            {
+              "name": "UART0_TX",
+              "af_index": 2,
+              "peripheral": "UART0"
+            },
+            {
+              "name": "I2C0_SDA",
+              "af_index": 3,
+              "peripheral": "I2C0"
+            },
+            {
+              "name": "SPI0_RX",
+              "af_index": 1,
+              "peripheral": "SPI0"
+            },
+            {
+              "name": "PWM0_A",
+              "af_index": 4,
+              "peripheral": "PWM"
+            }
+          ],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "2",
+          "pin_name": "GPIO1",
+          "pin_type": "IO",
+          "description": "GPIO1 / UART0_RX / I2C0_SCL / SPI0_CS / PWM0_B",
+          "alternate_functions": [
+            {
+              "name": "UART0_RX",
+              "af_index": 2,
+              "peripheral": "UART0"
+            },
+            {
+              "name": "I2C0_SCL",
+              "af_index": 3,
+              "peripheral": "I2C0"
+            },
+            {
+              "name": "SPI0_CSn",
+              "af_index": 1,
+              "peripheral": "SPI0"
+            },
+            {
+              "name": "PWM0_B",
+              "af_index": 4,
+              "peripheral": "PWM"
+            }
+          ],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "3",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "4",
+          "pin_name": "GPIO2",
+          "pin_type": "IO",
+          "description": "GPIO2 / I2C1_SDA / SPI0_SCK / PWM1_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "5",
+          "pin_name": "GPIO3",
+          "pin_type": "IO",
+          "description": "GPIO3 / I2C1_SCL / SPI0_TX / PWM1_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "6",
+          "pin_name": "GPIO4",
+          "pin_type": "IO",
+          "description": "GPIO4 / UART1_TX / I2C0_SDA / SPI0_RX / PWM2_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "7",
+          "pin_name": "GPIO5",
+          "pin_type": "IO",
+          "description": "GPIO5 / UART1_RX / I2C0_SCL / SPI0_CS / PWM2_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "8",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "9",
+          "pin_name": "GPIO6",
+          "pin_type": "IO",
+          "description": "GPIO6 / I2C1_SDA / SPI0_SCK / PWM3_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "10",
+          "pin_name": "GPIO7",
+          "pin_type": "IO",
+          "description": "GPIO7 / I2C1_SCL / SPI0_TX / PWM3_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "11",
+          "pin_name": "GPIO8",
+          "pin_type": "IO",
+          "description": "GPIO8 / UART1_TX / I2C0_SDA / SPI1_RX / PWM4_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "12",
+          "pin_name": "GPIO9",
+          "pin_type": "IO",
+          "description": "GPIO9 / UART1_RX / I2C0_SCL / SPI1_CS / PWM4_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "13",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "14",
+          "pin_name": "GPIO10",
+          "pin_type": "IO",
+          "description": "GPIO10 / I2C1_SDA / SPI1_SCK / PWM5_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "15",
+          "pin_name": "GPIO11",
+          "pin_type": "IO",
+          "description": "GPIO11 / I2C1_SCL / SPI1_TX / PWM5_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "16",
+          "pin_name": "GPIO12",
+          "pin_type": "IO",
+          "description": "GPIO12 / UART0_TX / I2C0_SDA / SPI1_RX / PWM6_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "17",
+          "pin_name": "GPIO13",
+          "pin_type": "IO",
+          "description": "GPIO13 / UART0_RX / I2C0_SCL / SPI1_CS / PWM6_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "18",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "19",
+          "pin_name": "GPIO14",
+          "pin_type": "IO",
+          "description": "GPIO14 / I2C1_SDA / SPI1_SCK / PWM7_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "20",
+          "pin_name": "GPIO15",
+          "pin_type": "IO",
+          "description": "GPIO15 / I2C1_SCL / SPI1_TX / PWM7_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "21",
+          "pin_name": "GPIO16",
+          "pin_type": "IO",
+          "description": "GPIO16 / UART0_TX / I2C0_SDA / SPI0_RX / PWM0_A",
+          "alternate_functions": [
+            {
+              "name": "UART0_TX",
+              "af_index": 2,
+              "peripheral": "UART0"
+            },
+            {
+              "name": "I2C0_SDA",
+              "af_index": 3,
+              "peripheral": "I2C0"
+            },
+            {
+              "name": "SPI0_RX",
+              "af_index": 1,
+              "peripheral": "SPI0"
+            },
+            {
+              "name": "PWM0_A",
+              "af_index": 4,
+              "peripheral": "PWM"
+            }
+          ],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "22",
+          "pin_name": "GPIO17",
+          "pin_type": "IO",
+          "description": "GPIO17 / UART0_RX / I2C0_SCL / SPI0_CS / PWM0_B",
+          "alternate_functions": [
+            {
+              "name": "UART0_RX",
+              "af_index": 2,
+              "peripheral": "UART0"
+            },
+            {
+              "name": "I2C0_SCL",
+              "af_index": 3,
+              "peripheral": "I2C0"
+            },
+            {
+              "name": "SPI0_CSn",
+              "af_index": 1,
+              "peripheral": "SPI0"
+            },
+            {
+              "name": "PWM0_B",
+              "af_index": 4,
+              "peripheral": "PWM"
+            }
+          ],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "23",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "24",
+          "pin_name": "GPIO18",
+          "pin_type": "IO",
+          "description": "GPIO18 / I2C1_SDA / SPI0_SCK / PWM1_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "25",
+          "pin_name": "GPIO19",
+          "pin_type": "IO",
+          "description": "GPIO19 / I2C1_SCL / SPI0_TX / PWM1_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "26",
+          "pin_name": "GPIO20",
+          "pin_type": "IO",
+          "description": "GPIO20 / UART1_TX / I2C0_SDA / SPI0_RX / PWM2_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "27",
+          "pin_name": "GPIO21",
+          "pin_type": "IO",
+          "description": "GPIO21 / UART1_RX / I2C0_SCL / SPI0_CS / PWM2_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "28",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "29",
+          "pin_name": "GPIO22",
+          "pin_type": "IO",
+          "description": "GPIO22 / I2C1_SDA / SPI0_SCK / PWM3_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "30",
+          "pin_name": "RUN",
+          "pin_type": "I",
+          "description": "Global reset, active low",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "31",
+          "pin_name": "GPIO26",
+          "pin_type": "IO",
+          "description": "GPIO26 / ADC0",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "32",
+          "pin_name": "GPIO27",
+          "pin_type": "IO",
+          "description": "GPIO27 / ADC1",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "33",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "34",
+          "pin_name": "GPIO28",
+          "pin_type": "IO",
+          "description": "GPIO28 / ADC2",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "35",
+          "pin_name": "GPIO29",
+          "pin_type": "IO",
+          "description": "GPIO29 / ADC3",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "36",
+          "pin_name": "ADC_AVDD",
+          "pin_type": "P",
+          "description": "ADC analog supply (3.3 V)",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "37",
+          "pin_name": "VREG_VIN",
+          "pin_type": "P",
+          "description": "Core regulator input",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "38",
+          "pin_name": "VREG_VOUT",
+          "pin_type": "P",
+          "description": "1.1 V core regulator output",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "39",
+          "pin_name": "USB_DM",
+          "pin_type": "IO",
+          "description": "USB D-",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "40",
+          "pin_name": "USB_DP",
+          "pin_type": "IO",
+          "description": "USB D+",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "41",
+          "pin_name": "USB_VDD",
+          "pin_type": "P",
+          "description": "USB PHY supply",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "42",
+          "pin_name": "IOVDD",
+          "pin_type": "P",
+          "description": "Digital IO supply",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "43",
+          "pin_name": "DVDD",
+          "pin_type": "P",
+          "description": "Digital core supply",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "44",
+          "pin_name": "SWCLK",
+          "pin_type": "I",
+          "description": "SWD clock",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "45",
+          "pin_name": "SWD",
+          "pin_type": "IO",
+          "description": "SWD data",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "46",
+          "pin_name": "XIN",
+          "pin_type": "I",
+          "description": "Crystal oscillator input",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "47",
+          "pin_name": "XOUT",
+          "pin_type": "O",
+          "description": "Crystal oscillator output",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "48",
+          "pin_name": "IOVDD",
+          "pin_type": "P",
+          "description": "Digital IO supply",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "49",
+          "pin_name": "GPIO23",
+          "pin_type": "IO",
+          "description": "GPIO23 / SPI0_TX / PWM3_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "50",
+          "pin_name": "GPIO24",
+          "pin_type": "IO",
+          "description": "GPIO24 / SPI1_RX / PWM4_A",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "51",
+          "pin_name": "GPIO25",
+          "pin_type": "IO",
+          "description": "GPIO25 / SPI1_CS / PWM4_B",
+          "alternate_functions": [],
+          "default_function": "GPIO"
+        },
+        {
+          "pin_number": "52",
+          "pin_name": "IOVDD",
+          "pin_type": "P",
+          "description": "Digital IO supply",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "53",
+          "pin_name": "TESTEN",
+          "pin_type": "I",
+          "description": "Test mode enable (tie low)",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "54",
+          "pin_name": "QSPI_SS",
+          "pin_type": "IO",
+          "description": "External flash chip select",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "55",
+          "pin_name": "QSPI_SCLK",
+          "pin_type": "IO",
+          "description": "External flash clock",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "56",
+          "pin_name": "QSPI_SD0",
+          "pin_type": "IO",
+          "description": "External flash data 0",
+          "alternate_functions": []
+        }
+      ]
+    }
+  ],
+  "pins": [
+    {
+      "pin_number": "1",
+      "pin_name": "GPIO0",
+      "pin_type": "IO",
+      "description": "GPIO0 / UART0_TX / I2C0_SDA / SPI0_RX / PWM0_A",
+      "alternate_functions": [
+        {
+          "name": "UART0_TX",
+          "af_index": 2,
+          "peripheral": "UART0"
+        },
+        {
+          "name": "I2C0_SDA",
+          "af_index": 3,
+          "peripheral": "I2C0"
+        },
+        {
+          "name": "SPI0_RX",
+          "af_index": 1,
+          "peripheral": "SPI0"
+        },
+        {
+          "name": "PWM0_A",
+          "af_index": 4,
+          "peripheral": "PWM"
+        }
+      ],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "2",
+      "pin_name": "GPIO1",
+      "pin_type": "IO",
+      "description": "GPIO1 / UART0_RX / I2C0_SCL / SPI0_CS / PWM0_B",
+      "alternate_functions": [
+        {
+          "name": "UART0_RX",
+          "af_index": 2,
+          "peripheral": "UART0"
+        },
+        {
+          "name": "I2C0_SCL",
+          "af_index": 3,
+          "peripheral": "I2C0"
+        },
+        {
+          "name": "SPI0_CSn",
+          "af_index": 1,
+          "peripheral": "SPI0"
+        },
+        {
+          "name": "PWM0_B",
+          "af_index": 4,
+          "peripheral": "PWM"
+        }
+      ],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "3",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "4",
+      "pin_name": "GPIO2",
+      "pin_type": "IO",
+      "description": "GPIO2 / I2C1_SDA / SPI0_SCK / PWM1_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "5",
+      "pin_name": "GPIO3",
+      "pin_type": "IO",
+      "description": "GPIO3 / I2C1_SCL / SPI0_TX / PWM1_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "6",
+      "pin_name": "GPIO4",
+      "pin_type": "IO",
+      "description": "GPIO4 / UART1_TX / I2C0_SDA / SPI0_RX / PWM2_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "7",
+      "pin_name": "GPIO5",
+      "pin_type": "IO",
+      "description": "GPIO5 / UART1_RX / I2C0_SCL / SPI0_CS / PWM2_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "8",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "9",
+      "pin_name": "GPIO6",
+      "pin_type": "IO",
+      "description": "GPIO6 / I2C1_SDA / SPI0_SCK / PWM3_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "10",
+      "pin_name": "GPIO7",
+      "pin_type": "IO",
+      "description": "GPIO7 / I2C1_SCL / SPI0_TX / PWM3_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "11",
+      "pin_name": "GPIO8",
+      "pin_type": "IO",
+      "description": "GPIO8 / UART1_TX / I2C0_SDA / SPI1_RX / PWM4_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "12",
+      "pin_name": "GPIO9",
+      "pin_type": "IO",
+      "description": "GPIO9 / UART1_RX / I2C0_SCL / SPI1_CS / PWM4_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "13",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "14",
+      "pin_name": "GPIO10",
+      "pin_type": "IO",
+      "description": "GPIO10 / I2C1_SDA / SPI1_SCK / PWM5_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "15",
+      "pin_name": "GPIO11",
+      "pin_type": "IO",
+      "description": "GPIO11 / I2C1_SCL / SPI1_TX / PWM5_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "16",
+      "pin_name": "GPIO12",
+      "pin_type": "IO",
+      "description": "GPIO12 / UART0_TX / I2C0_SDA / SPI1_RX / PWM6_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "17",
+      "pin_name": "GPIO13",
+      "pin_type": "IO",
+      "description": "GPIO13 / UART0_RX / I2C0_SCL / SPI1_CS / PWM6_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "18",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "19",
+      "pin_name": "GPIO14",
+      "pin_type": "IO",
+      "description": "GPIO14 / I2C1_SDA / SPI1_SCK / PWM7_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "20",
+      "pin_name": "GPIO15",
+      "pin_type": "IO",
+      "description": "GPIO15 / I2C1_SCL / SPI1_TX / PWM7_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "21",
+      "pin_name": "GPIO16",
+      "pin_type": "IO",
+      "description": "GPIO16 / UART0_TX / I2C0_SDA / SPI0_RX / PWM0_A",
+      "alternate_functions": [
+        {
+          "name": "UART0_TX",
+          "af_index": 2,
+          "peripheral": "UART0"
+        },
+        {
+          "name": "I2C0_SDA",
+          "af_index": 3,
+          "peripheral": "I2C0"
+        },
+        {
+          "name": "SPI0_RX",
+          "af_index": 1,
+          "peripheral": "SPI0"
+        },
+        {
+          "name": "PWM0_A",
+          "af_index": 4,
+          "peripheral": "PWM"
+        }
+      ],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "22",
+      "pin_name": "GPIO17",
+      "pin_type": "IO",
+      "description": "GPIO17 / UART0_RX / I2C0_SCL / SPI0_CS / PWM0_B",
+      "alternate_functions": [
+        {
+          "name": "UART0_RX",
+          "af_index": 2,
+          "peripheral": "UART0"
+        },
+        {
+          "name": "I2C0_SCL",
+          "af_index": 3,
+          "peripheral": "I2C0"
+        },
+        {
+          "name": "SPI0_CSn",
+          "af_index": 1,
+          "peripheral": "SPI0"
+        },
+        {
+          "name": "PWM0_B",
+          "af_index": 4,
+          "peripheral": "PWM"
+        }
+      ],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "23",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "24",
+      "pin_name": "GPIO18",
+      "pin_type": "IO",
+      "description": "GPIO18 / I2C1_SDA / SPI0_SCK / PWM1_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "25",
+      "pin_name": "GPIO19",
+      "pin_type": "IO",
+      "description": "GPIO19 / I2C1_SCL / SPI0_TX / PWM1_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "26",
+      "pin_name": "GPIO20",
+      "pin_type": "IO",
+      "description": "GPIO20 / UART1_TX / I2C0_SDA / SPI0_RX / PWM2_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "27",
+      "pin_name": "GPIO21",
+      "pin_type": "IO",
+      "description": "GPIO21 / UART1_RX / I2C0_SCL / SPI0_CS / PWM2_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "28",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "29",
+      "pin_name": "GPIO22",
+      "pin_type": "IO",
+      "description": "GPIO22 / I2C1_SDA / SPI0_SCK / PWM3_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "30",
+      "pin_name": "RUN",
+      "pin_type": "I",
+      "description": "Global reset, active low",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "31",
+      "pin_name": "GPIO26",
+      "pin_type": "IO",
+      "description": "GPIO26 / ADC0",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "32",
+      "pin_name": "GPIO27",
+      "pin_type": "IO",
+      "description": "GPIO27 / ADC1",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "33",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "34",
+      "pin_name": "GPIO28",
+      "pin_type": "IO",
+      "description": "GPIO28 / ADC2",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "35",
+      "pin_name": "GPIO29",
+      "pin_type": "IO",
+      "description": "GPIO29 / ADC3",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "36",
+      "pin_name": "ADC_AVDD",
+      "pin_type": "P",
+      "description": "ADC analog supply (3.3 V)",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "37",
+      "pin_name": "VREG_VIN",
+      "pin_type": "P",
+      "description": "Core regulator input",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "38",
+      "pin_name": "VREG_VOUT",
+      "pin_type": "P",
+      "description": "1.1 V core regulator output",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "39",
+      "pin_name": "USB_DM",
+      "pin_type": "IO",
+      "description": "USB D-",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "40",
+      "pin_name": "USB_DP",
+      "pin_type": "IO",
+      "description": "USB D+",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "41",
+      "pin_name": "USB_VDD",
+      "pin_type": "P",
+      "description": "USB PHY supply",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "42",
+      "pin_name": "IOVDD",
+      "pin_type": "P",
+      "description": "Digital IO supply",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "43",
+      "pin_name": "DVDD",
+      "pin_type": "P",
+      "description": "Digital core supply",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "44",
+      "pin_name": "SWCLK",
+      "pin_type": "I",
+      "description": "SWD clock",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "45",
+      "pin_name": "SWD",
+      "pin_type": "IO",
+      "description": "SWD data",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "46",
+      "pin_name": "XIN",
+      "pin_type": "I",
+      "description": "Crystal oscillator input",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "47",
+      "pin_name": "XOUT",
+      "pin_type": "O",
+      "description": "Crystal oscillator output",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "48",
+      "pin_name": "IOVDD",
+      "pin_type": "P",
+      "description": "Digital IO supply",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "49",
+      "pin_name": "GPIO23",
+      "pin_type": "IO",
+      "description": "GPIO23 / SPI0_TX / PWM3_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "50",
+      "pin_name": "GPIO24",
+      "pin_type": "IO",
+      "description": "GPIO24 / SPI1_RX / PWM4_A",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "51",
+      "pin_name": "GPIO25",
+      "pin_type": "IO",
+      "description": "GPIO25 / SPI1_CS / PWM4_B",
+      "alternate_functions": [],
+      "default_function": "GPIO"
+    },
+    {
+      "pin_number": "52",
+      "pin_name": "IOVDD",
+      "pin_type": "P",
+      "description": "Digital IO supply",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "53",
+      "pin_name": "TESTEN",
+      "pin_type": "I",
+      "description": "Test mode enable (tie low)",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "54",
+      "pin_name": "QSPI_SS",
+      "pin_type": "IO",
+      "description": "External flash chip select",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "55",
+      "pin_name": "QSPI_SCLK",
+      "pin_type": "IO",
+      "description": "External flash clock",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "56",
+      "pin_name": "QSPI_SD0",
+      "pin_type": "IO",
+      "description": "External flash data 0",
+      "alternate_functions": []
+    }
+  ],
+  "metadata": {
+    "datasheet_id": "RP2040-DATASHEET",
+    "revision": "2",
+    "date": "2024",
+    "operating_conditions": "IOVDD 1.8\u20133.3 V",
+    "gap_coverage": "Gap 1/2 stress \u2014 56-pin QFN, multi-function GPIO AFs",
+    "footnote_map": {}
+  },
+  "validation": {
+    "passed": true,
+    "errors": [],
+    "warnings": [],
+    "review_required": false
+  }
+}

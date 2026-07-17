@@ -1,0 +1,268 @@
+{
+  "component_id": "TLV75533P",
+  "manufacturer": "Texas Instruments",
+  "package": "WSON-6 (DRV) / SOT-23-5",
+  "datasheet_version": "SBVS320D",
+  "extraction_timestamp": "2026-07-17T08:00:57Z",
+  "sections": [
+    {
+      "section_type": "absolute_maximum_ratings",
+      "section_heading": "6.1 Absolute Maximum Ratings",
+      "page_range": [
+        4,
+        4
+      ],
+      "table_confidence": 0.98,
+      "parameters": [],
+      "abs_max_ratings": [
+        {
+          "name": "VIN",
+          "max_value": {
+            "raw_text": "6.0 V",
+            "value": 6.0,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": "Input voltage"
+        },
+        {
+          "name": "VEN",
+          "max_value": {
+            "raw_text": "6.0 V",
+            "value": 6.0,
+            "unit": "V",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "V",
+          "note": "Enable"
+        },
+        {
+          "name": "TJ",
+          "max_value": {
+            "raw_text": "150 \u00b0C",
+            "value": 150.0,
+            "unit": "\u00b0C",
+            "confidence": 0.98,
+            "source": "manual_review",
+            "footnote": null
+          },
+          "unit": "\u00b0C",
+          "note": "Junction temperature"
+        }
+      ],
+      "pins": []
+    },
+    {
+      "section_type": "electrical_characteristics",
+      "section_heading": "6.5 Electrical Characteristics",
+      "page_range": [
+        5,
+        7
+      ],
+      "table_confidence": 0.96,
+      "parameters": [
+        {
+          "parameter_name": "Input voltage",
+          "symbol": "VIN",
+          "conditions": null,
+          "value": {
+            "raw_text": "1.45 to 5.5 V",
+            "value": 3.3,
+            "unit": "V",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": 1.45,
+            "typ_val": 3.3,
+            "max_val": 5.5
+          }
+        },
+        {
+          "parameter_name": "Output current",
+          "symbol": "IOUT",
+          "conditions": null,
+          "value": {
+            "raw_text": "500 mA",
+            "value": 0.5,
+            "unit": "A",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 0.5,
+            "max_val": 0.5
+          }
+        },
+        {
+          "parameter_name": "Dropout voltage",
+          "symbol": "VDO",
+          "conditions": "IOUT=500mA, VOUT=3.3V typ",
+          "value": {
+            "raw_text": "220 mV",
+            "value": 0.22,
+            "unit": "V",
+            "confidence": 0.97,
+            "source": "manual_datasheet_review",
+            "min_val": null,
+            "typ_val": 0.22,
+            "max_val": null
+          }
+        }
+      ],
+      "abs_max_ratings": [],
+      "pins": []
+    },
+    {
+      "section_type": "layout_recommendations",
+      "section_heading": "7.2 Typical Application / Capacitor Selection",
+      "page_range": [
+        12,
+        14
+      ],
+      "table_confidence": 0.94,
+      "parameters": [],
+      "abs_max_ratings": [],
+      "pins": [],
+      "application_circuit_note": "Typical application figure shows CIN=1\u00b5F and COUT=1\u00b5F ceramic capacitors; values are figure/caption-primary (also restated in Recommended Operating Conditions as CIN/COUT = 1\u00b5F). Use for Diagram A2 caption/figure path."
+    },
+    {
+      "section_type": "pinout",
+      "section_heading": "5 Pin Configuration and Functions",
+      "page_range": [
+        3,
+        3
+      ],
+      "table_confidence": 0.97,
+      "parameters": [],
+      "abs_max_ratings": [],
+      "pins": [
+        {
+          "pin_number": "1",
+          "pin_name": "IN",
+          "pin_type": "P",
+          "description": "Input supply. Place CIN \u2265 1\u00b5F ceramic to GND (typical application figure).",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "2",
+          "pin_name": "GND",
+          "pin_type": "G",
+          "description": "Ground",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "3",
+          "pin_name": "EN",
+          "pin_type": "I",
+          "description": "Enable, active high",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "4",
+          "pin_name": "NC",
+          "pin_type": "NC",
+          "description": "No connect (DRV package)",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "5",
+          "pin_name": "OUT",
+          "pin_type": "P",
+          "description": "Regulated output. Place COUT \u2265 1\u00b5F ceramic to GND (typical application figure).",
+          "alternate_functions": []
+        },
+        {
+          "pin_number": "PAD",
+          "pin_name": "Thermal Pad",
+          "pin_type": "G",
+          "description": "Connect to GND plane",
+          "alternate_functions": []
+        }
+      ]
+    }
+  ],
+  "pins": [
+    {
+      "pin_number": "1",
+      "pin_name": "IN",
+      "pin_type": "P",
+      "description": "Input supply. Place CIN \u2265 1\u00b5F ceramic to GND (typical application figure).",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "2",
+      "pin_name": "GND",
+      "pin_type": "G",
+      "description": "Ground",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "3",
+      "pin_name": "EN",
+      "pin_type": "I",
+      "description": "Enable, active high",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "4",
+      "pin_name": "NC",
+      "pin_type": "NC",
+      "description": "No connect (DRV package)",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "5",
+      "pin_name": "OUT",
+      "pin_type": "P",
+      "description": "Regulated output. Place COUT \u2265 1\u00b5F ceramic to GND (typical application figure).",
+      "alternate_functions": []
+    },
+    {
+      "pin_number": "PAD",
+      "pin_name": "Thermal Pad",
+      "pin_type": "G",
+      "description": "Connect to GND plane",
+      "alternate_functions": []
+    }
+  ],
+  "metadata": {
+    "datasheet_id": "SBVS320",
+    "revision": "D",
+    "date": "September 2024",
+    "operating_conditions": "VIN 1.45\u20135.5 V, IOUT \u2264 500 mA",
+    "gap_coverage": "Diagram A2 \u2014 typical-app CIN/COUT = 1\u00b5F from figure",
+    "application_circuit_components": [
+      {
+        "ref_designator": "CIN",
+        "component_type": "capacitor",
+        "value": "1\u00b5F",
+        "connected_to_pin": "IN",
+        "net": "VIN",
+        "source": "caption_text",
+        "confidence": 0.95
+      },
+      {
+        "ref_designator": "COUT",
+        "component_type": "capacitor",
+        "value": "1\u00b5F",
+        "connected_to_pin": "OUT",
+        "net": "VOUT",
+        "source": "caption_text",
+        "confidence": 0.95
+      }
+    ],
+    "thermal_pad_connect_to": "GND",
+    "footnote_map": {
+      "(1)": "Ensure effective COUT \u2265 0.47\u00b5F after DC bias derating"
+    }
+  },
+  "validation": {
+    "passed": true,
+    "errors": [],
+    "warnings": [],
+    "review_required": false
+  }
+}
