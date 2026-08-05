@@ -6,6 +6,7 @@ Uses Instructor library for schema adherence and validation.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
@@ -33,24 +34,35 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class InstructorWrapper:
-    """Wrapper for Instructor client with Qwen2.5 model."""
+    """Local structured-extraction wrapper for a Qwen2.5-Instruct model.
 
-    def __init__(self, model_path: Path, device: str = "cpu"):
-        """Initialize Instructor with Qwen2.5 model.
+    Despite the name, this does not use the `instructor` package — that
+    library targets OpenAI-compatible chat-completion clients, and this
+    class loads a model directly via `transformers` in-process rather than
+    running a server. Instead, .extract() does the same thing `instructor`
+    does under the hood: prompt for JSON matching the target Pydantic
+    model's schema, parse the response, and retry with the validation
+    error fed back into the prompt if it doesn't validate. The name is kept
+    for backward compatibility with existing callers/imports.
+    """
+
+    def __init__(self, model_path: Path, device: str = "cpu") -> None:
+        """Initialize the wrapper for a Qwen2.5 model.
 
         Args:
-            model_path: Path to Qwen2.5-7B-Instruct model
+            model_path: Path to a local Qwen2.5-Instruct model directory
             device: Device to run on (cpu, cuda, etc.)
         """
         self.model_path = model_path
         self.device = device
-        self._client: Any | None = None
         self._model: Any | None = None
         self._tokenizer: Any | None = None
 
     def _load_model(self) -> None:
-        """Lazy load model on first use."""
-        if self._client is not None:
+        """Lazy load model on first use. Cached on self._model/_tokenizer —
+        every .extract() call reuses the already-loaded weights instead of
+        reloading them from disk."""
+        if self._model is not None and self._tokenizer is not None:
             return
 
         try:
@@ -68,39 +80,189 @@ class InstructorWrapper:
                 torch_dtype="auto",
                 trust_remote_code=True,
             )
-
-            # Import instructor and wrap model
-            import instructor
-            from openai import OpenAI
-
-            # For local models, we use a custom client
-            self._client = None  # Placeholder
+            # from_pretrained() does not set eval mode itself — without this,
+            # any dropout layers in the checkpoint stay active and inject
+            # small randomness into generation even with greedy decoding.
+            self._model.eval()
 
         except Exception as e:
             logger.error(f"Failed to load Qwen2.5 model: {e}")
             raise RuntimeError(f"Could not load LLM from {self.model_path}: {e}") from e
+
+    def _generate(
+        self,
+        system_prompt: str,
+        user_content: str,
+        max_new_tokens: int,
+        temperature: float = 0.0,
+    ) -> str:
+        """Run one generation pass and return the model's raw text reply.
+
+        temperature <= 0 keeps greedy decoding (do_sample=False), matching the
+        historical default used by datasheet extraction and qwen25_backend.
+        temperature > 0 enables sampling so callers like the Idea 2
+        self-improvement loop can diversify retries across rounds.
+        """
+        import torch
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ]
+        try:
+            prompt_text = self._tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True,
+            )
+        except Exception:
+            # Fallback for a tokenizer without a chat template configured.
+            prompt_text = f"{system_prompt}\n\n{user_content}\n\nResponse:"
+
+        inputs = self._tokenizer(prompt_text, return_tensors="pt")
+        if self.device != "cpu":
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        generate_kwargs: dict[str, Any] = {
+            "max_new_tokens": max_new_tokens,
+            "pad_token_id": self._tokenizer.eos_token_id,
+        }
+        if temperature > 0.0:
+            generate_kwargs["do_sample"] = True
+            generate_kwargs["temperature"] = temperature
+        else:
+            generate_kwargs["do_sample"] = False
+
+        with torch.no_grad():
+            output_ids = self._model.generate(**inputs, **generate_kwargs)
+
+        generated = output_ids[0][inputs["input_ids"].shape[-1]:]
+        return str(self._tokenizer.decode(generated, skip_special_tokens=True))
+
+    @staticmethod
+    def _extract_json_object(text: str) -> Optional[str]:
+        """Pull the first complete top-level {...} object out of a raw
+        model reply, using brace-depth matching rather than a naive
+        first-'{'/last-'}' search. Small models routinely keep generating
+        after a valid JSON object closes — repeating themselves, adding
+        commentary, echoing the schema again — and grabbing the last '}'
+        anywhere in the text would swallow that trailing content into the
+        parsed string and fail validation even though a valid object was
+        actually produced. Tracks quoted-string state so braces inside
+        string values (net names, etc.) don't throw off the depth count."""
+        start = text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        in_string = False
+        escape = False
+        for i in range(start, len(text)):
+            ch = text[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+        return None
 
     def extract(
         self,
         response_model: type[T],
         system_prompt: str,
         user_content: str,
+        max_retries: int = 2,
+        max_new_tokens: int = 512,
+        temperature: float = 0.0,
     ) -> Optional[T]:
-        """Extract structured data using Instructor.
+        """Extract structured data matching response_model from the model.
+
+        Prompts for JSON conforming to response_model's schema, parses the
+        reply, and validates it against the schema. On a parse or
+        validation failure, retries up to max_retries times with the
+        specific error fed back into the prompt (the same "tell it what
+        went wrong and ask again" pattern the `instructor` package uses).
 
         Args:
             response_model: Pydantic model class to extract
             system_prompt: System prompt for the model
-            user_content: User content (table text)
+            user_content: User content (table text, component list, etc.)
+            max_retries: Extra attempts after the first, on parse/validation failure
+            max_new_tokens: Generation length cap per attempt
+            temperature: Sampling temperature forwarded to _generate().
+                <= 0 keeps greedy decoding (default, preserves datasheet /
+                qwen25 behaviour). > 0 enables sampling for callers that
+                need diversity (Idea 2 self-improvement rounds).
 
         Returns:
-            Extracted model instance, or None if extraction fails
+            Extracted model instance, or None if every attempt fails.
+            Never raises — model load failures, generation errors, and
+            parse/validation failures all fall through to None.
         """
-        self._load_model()
+        try:
+            self._load_model()
+        except Exception as exc:
+            logger.error(f"InstructorWrapper.extract: model load failed: {exc}")
+            return None
 
-        # Placeholder: In production, this would use Instructor with the model
-        # For now, return None to indicate extraction not implemented
-        logger.warning("LLM extraction not fully implemented - using placeholder")
+        schema_instructions = (
+            "\n\nRespond with a single JSON object only — no prose, no "
+            "markdown code fences, no explanation. The JSON must conform "
+            f"to this schema:\n{json.dumps(response_model.model_json_schema())}"
+        )
+        full_system_prompt = system_prompt + schema_instructions
+
+        feedback: Optional[str] = None
+        for attempt in range(max_retries + 1):
+            user_turn = user_content
+            if feedback:
+                user_turn += (
+                    f"\n\nYour previous response was invalid: {feedback}\n"
+                    "Respond again with corrected JSON only."
+                )
+
+            try:
+                raw_text = self._generate(
+                    full_system_prompt,
+                    user_turn,
+                    max_new_tokens,
+                    temperature=temperature,
+                )
+            except Exception as exc:
+                logger.error(f"InstructorWrapper.extract: generation failed: {exc}")
+                return None
+
+            json_str = self._extract_json_object(raw_text)
+            if json_str is None:
+                feedback = "No JSON object found in your response."
+                logger.warning(
+                    f"InstructorWrapper.extract: attempt {attempt} produced no "
+                    "parseable JSON."
+                )
+                continue
+
+            try:
+                return response_model.model_validate_json(json_str)
+            except Exception as exc:
+                feedback = str(exc)
+                logger.warning(
+                    f"InstructorWrapper.extract: attempt {attempt} failed schema "
+                    f"validation: {exc}"
+                )
+                continue
+
+        logger.warning(
+            f"InstructorWrapper.extract: giving up after {max_retries + 1} attempts."
+        )
         return None
 
 

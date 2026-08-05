@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 import networkx as nx
 
@@ -579,21 +579,21 @@ def _build_netlist_graph(
     return g
 
 
-def _node_match_fn(schematic_attrs: dict, template_attrs: dict) -> bool:
+def _node_match_fn(schematic_attrs: dict[str, Any], template_attrs: dict[str, Any]) -> bool:
     """VF2 node matcher: checks keyword substring match."""
     keyword = template_attrs.get("keyword", "")
     if not keyword:
         return True
     comp_type = schematic_attrs.get("keyword", "")
-    return keyword in comp_type
+    return bool(keyword in comp_type)
 
 
-def _edge_match_fn(schematic_attrs: dict, template_attrs: dict) -> bool:
+def _edge_match_fn(schematic_attrs: dict[str, Any], template_attrs: dict[str, Any]) -> bool:
     """VF2 edge matcher: checks net_type compatibility."""
     required_type = template_attrs.get("net_type")
     if required_type is None:
         return True
-    actual_types: set = schematic_attrs.get("net_types", set())
+    actual_types: set[str] = schematic_attrs.get("net_types", set())
     if required_type == "ground":
         return "ground" in actual_types or "power" in actual_types
     return required_type in actual_types
@@ -604,7 +604,7 @@ def _get_primary_keyword(template: nx.Graph) -> str:
     for _, attrs in template.nodes(data=True):
         kw = attrs.get("keyword", "")
         if kw:
-            return kw
+            return str(kw)
     return ""
 
 

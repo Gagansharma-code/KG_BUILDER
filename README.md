@@ -89,6 +89,8 @@ See [`documents/architecture/OPENFORGE_ARCHITECTURE.md`](documents/architecture/
 | [`documents/architecture/OPENFORGE_SUBSYSTEMS.md`](documents/architecture/OPENFORGE_SUBSYSTEMS.md) | Subsystem specifications |
 | [`documents/architecture/OPENFORGE_INTEGRATION.md`](documents/architecture/OPENFORGE_INTEGRATION.md) | KiCad + tscircuit integration |
 | [`documents/architecture/PROJECT_CONTEXT.md`](documents/architecture/PROJECT_CONTEXT.md) | Living project status |
+| [`documents/decisions/IDEA_1_2_EXPLAINER.md`](documents/decisions/IDEA_1_2_EXPLAINER.md) | Plain-language guide to the ASHA search controller (Idea 1) and the weak-model self-improvement loop (Idea 2) |
+| [`documents/decisions/Search_controller_decision.md`](documents/decisions/Search_controller_decision.md) | Full ASHA vs. Thompson Sampling design reasoning |
 | [`documents/guides/atge_3_RetrievalKB_Engine.md`](documents/guides/atge_3_RetrievalKB_Engine.md) | Stage 3 retrieval engine spec |
 | [`documents/guides/stage_5_Search_storage.md`](documents/guides/stage_5_Search_storage.md) | Stage 05 search/storage/deployment spec |
 | [`docs/DEPLOYMENT_NOTES.md`](docs/DEPLOYMENT_NOTES.md) | VRAM budget, RRF tuning, TCO |

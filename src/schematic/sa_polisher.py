@@ -289,7 +289,7 @@ def _metropolis_accept(
 
 def polish_schematic(
     netlist: list[NetlistEntry],
-    ref_map: dict,
+    ref_map: dict[str, tuple[str, Optional["ComponentDatasheet"]]],
     bom: ValidatedBOM,
     verification: VerificationResult,
     expected_topologies: Optional[list[str]] = None,

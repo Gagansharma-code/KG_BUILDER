@@ -7,6 +7,7 @@ model_paths:
   qwen2_vl_7b: "models/Qwen2-VL-7B-Instruct"
   yolov8n_doclaynet: "models/yolov8_doclaynets.pt"
   locateanything_3b: "models/locateanything-3b"
+  weak_netlist_proposer: "models/Qwen2.5-1.5B-Instruct"
 
 # Directory paths
 corpus_dir: "corpus"
@@ -84,3 +85,19 @@ knowledge_graph:
   neo4j_username: "neo4j"
   neo4j_password: "openforge"
   neo4j_database: null
+
+# Idea 1 — ASHA search controller (src/schematic/search_controller.py).
+# Opt-in: enabled=false leaves every existing pipeline path unchanged.
+search_controller:
+  enabled: false
+  max_bom_candidates: 3
+  human_review_threshold: 0.80
+  sampler_path: data/bom_tpe_history.json
+
+# Idea 2 — weak-model self-improvement loop (src/schematic/self_improvement_loop.py).
+# Opt-in: enabled=false leaves every existing pipeline path unchanged.
+self_improvement:
+  enabled: false
+  max_rounds: 5
+  score_threshold: 0.95
+  temperature_schedule: [0.7, 0.7, 0.9, 0.9, 0.5]

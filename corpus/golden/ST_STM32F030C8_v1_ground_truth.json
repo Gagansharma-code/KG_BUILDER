@@ -675,24 +675,15 @@
       "default_function": "GPIO"
     },
     {
-      "pin_number": "15",
-      "pin_name": "PA5",
-      "pin_type": "IO",
-      "description": "GPIO / ADC_IN5 / SPI1_SCK",
-      "alternate_functions": [
-        {
-          "name": "SPI1_SCK",
-          "af_index": 0,
-          "peripheral": "SPI1"
-        },
-        {
-          "name": "TIM2_CH1",
-          "af_index": 1,
-          "peripheral": "TIM2"
-        }
-      ],
-      "default_function": "GPIO"
-    },
+  "pin_number": "15",
+  "pin_name": "PA5",
+  "pin_type": "IO",
+  "description": "GPIO / ADC_IN5 / SPI1_SCK",
+  "alternate_functions": [
+    { "name": "SPI1_SCK", "af_index": 0, "peripheral": "SPI1" }
+  ],
+  "default_function": "GPIO"
+},
     {
       "pin_number": "16",
       "pin_name": "PA6",
@@ -742,13 +733,13 @@
       "default_function": "GPIO"
     },
     {
-      "pin_number": "20",
-      "pin_name": "PB2",
-      "pin_type": "IO",
-      "description": "GPIO / BOOT1",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
+  "pin_number": "20",
+  "pin_name": "PB2",
+  "pin_type": "IO",
+  "description": "GPIO (no alternate function)",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
     {
       "pin_number": "21",
       "pin_name": "PB10",
@@ -852,143 +843,134 @@
       "default_function": "GPIO"
     },
     {
-      "pin_number": "34",
-      "pin_name": "PA13",
-      "pin_type": "IO",
-      "description": "GPIO / SWDIO",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "35",
-      "pin_name": "VSS",
-      "pin_type": "G",
-      "description": "Ground",
-      "alternate_functions": []
-    },
-    {
-      "pin_number": "36",
-      "pin_name": "VDD",
-      "pin_type": "P",
-      "description": "Digital power supply",
-      "alternate_functions": []
-    },
-    {
-      "pin_number": "37",
-      "pin_name": "PA14",
-      "pin_type": "IO",
-      "description": "GPIO / SWCLK",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "38",
-      "pin_name": "PA15",
-      "pin_type": "IO",
-      "description": "GPIO / SPI1_NSS",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "39",
-      "pin_name": "PB3",
-      "pin_type": "IO",
-      "description": "GPIO / SPI1_SCK / TIM2_CH2",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "40",
-      "pin_name": "PB4",
-      "pin_type": "IO",
-      "description": "GPIO / SPI1_MISO / TIM3_CH1",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "41",
-      "pin_name": "PB5",
-      "pin_type": "IO",
-      "description": "GPIO / SPI1_MOSI / TIM3_CH2",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "42",
-      "pin_name": "PB6",
-      "pin_type": "IO",
-      "description": "GPIO / I2C1_SCL / USART1_TX",
-      "alternate_functions": [
-        {
-          "name": "I2C1_SCL",
-          "af_index": 1,
-          "peripheral": "I2C1"
-        },
-        {
-          "name": "USART1_TX",
-          "af_index": 0,
-          "peripheral": "USART1"
-        }
-      ],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "43",
-      "pin_name": "PB7",
-      "pin_type": "IO",
-      "description": "GPIO / I2C1_SDA / USART1_RX",
-      "alternate_functions": [
-        {
-          "name": "I2C1_SDA",
-          "af_index": 1,
-          "peripheral": "I2C1"
-        },
-        {
-          "name": "USART1_RX",
-          "af_index": 0,
-          "peripheral": "USART1"
-        }
-      ],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "44",
-      "pin_name": "PB8",
-      "pin_type": "IO",
-      "description": "GPIO / I2C1_SCL",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "45",
-      "pin_name": "PB9",
-      "pin_type": "IO",
-      "description": "GPIO / I2C1_SDA",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    },
-    {
-      "pin_number": "46",
-      "pin_name": "VSS",
-      "pin_type": "G",
-      "description": "Ground",
-      "alternate_functions": []
-    },
-    {
-      "pin_number": "47",
-      "pin_name": "VDD",
-      "pin_type": "P",
-      "description": "Digital power supply",
-      "alternate_functions": []
-    },
-    {
-      "pin_number": "48",
-      "pin_name": "PF11",
-      "pin_type": "IO",
-      "description": "BOOT0",
-      "alternate_functions": [],
-      "default_function": "GPIO"
-    }
+  "pin_number": "34",
+  "pin_name": "PA13",
+  "pin_type": "IO",
+  "description": "GPIO / SWDIO",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "35",
+  "pin_name": "PF6",
+  "pin_type": "IO",
+  "description": "GPIO / I2C2_SCL",
+  "alternate_functions": [
+    { "name": "I2C2_SCL", "af_index": null, "peripheral": "I2C2" }
+  ],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "36",
+  "pin_name": "PF7",
+  "pin_type": "IO",
+  "description": "GPIO / I2C2_SDA",
+  "alternate_functions": [
+    { "name": "I2C2_SDA", "af_index": null, "peripheral": "I2C2" }
+  ],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "37",
+  "pin_name": "PA14",
+  "pin_type": "IO",
+  "description": "GPIO / SWCLK",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "38",
+  "pin_name": "PA15",
+  "pin_type": "IO",
+  "description": "GPIO / SPI1_NSS",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "39",
+  "pin_name": "PB3",
+  "pin_type": "IO",
+  "description": "GPIO / SPI1_SCK",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "40",
+  "pin_name": "PB4",
+  "pin_type": "IO",
+  "description": "GPIO / SPI1_MISO / TIM3_CH1",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "41",
+  "pin_name": "PB5",
+  "pin_type": "IO",
+  "description": "GPIO / SPI1_MOSI / I2C1_SMBA / TIM3_CH2",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "42",
+  "pin_name": "PB6",
+  "pin_type": "IO",
+  "description": "GPIO / I2C1_SCL / USART1_TX",
+  "alternate_functions": [
+    { "name": "I2C1_SCL", "af_index": 1, "peripheral": "I2C1" },
+    { "name": "USART1_TX", "af_index": 0, "peripheral": "USART1" }
+  ],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "43",
+  "pin_name": "PB7",
+  "pin_type": "IO",
+  "description": "GPIO / I2C1_SDA / USART1_RX",
+  "alternate_functions": [
+    { "name": "I2C1_SDA", "af_index": 1, "peripheral": "I2C1" },
+    { "name": "USART1_RX", "af_index": 0, "peripheral": "USART1" }
+  ],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "44",
+  "pin_name": "BOOT0",
+  "pin_type": "I",
+  "description": "Boot memory selection",
+  "alternate_functions": []
+},
+{
+  "pin_number": "45",
+  "pin_name": "PB8",
+  "pin_type": "IO",
+  "description": "GPIO / I2C1_SCL",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "46",
+  "pin_name": "PB9",
+  "pin_type": "IO",
+  "description": "GPIO / I2C1_SDA",
+  "alternate_functions": [],
+  "default_function": "GPIO"
+},
+{
+  "pin_number": "47",
+  "pin_name": "VSS",
+  "pin_type": "G",
+  "description": "Ground",
+  "alternate_functions": []
+},
+{
+  "pin_number": "48",
+  "pin_name": "VDD",
+  "pin_type": "P",
+  "description": "Digital power supply",
+  "alternate_functions": []
+}
+  
+
   ],
   "metadata": {
     "datasheet_id": "DS9773",

@@ -43,6 +43,15 @@ try:
     from src.schematic.net_assigner import assign_power_nets
     from src.schematic._ref_mapper import build_ref_map
     from src.synthesis.pipeline import run_synthesis_pipeline
+    from src.schematic.search_controller import ASHAResult, run_search_controller
+    from src.schematic.llm_netlist_proposer import (
+        ProposedNetlistResult,
+        propose_netlist_llm,
+    )
+    from src.schematic.self_improvement_loop import (
+        SelfImprovementResult,
+        run_self_improving_synthesis,
+    )
 
     check(1, "All Team D modules import without error", True)
 except ImportError as e:
@@ -380,12 +389,23 @@ print("\n" + "-" * 60)
 try:
     mypy_result = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "mypy",
             "src/schematic/",
             "src/layout/",
             "src/nir/",
             "src/synthesis/",
             "--ignore-missing-imports",
+            # This gate judges Team D's own code only. Without this, mypy
+            # follows every import transitively and reports errors from
+            # whatever other teams' modules Team D's code happens to import
+            # (src/retrieval, src/knowledge_graph, src/completion, etc.) —
+            # pre-existing debt outside this gate's scope. --follow-imports
+            # =silent still fully type-checks using those modules' real
+            # signatures (needed for correctness), it just doesn't blame
+            # Team D for errors inside files that aren't Team D's.
+            "--follow-imports=silent",
         ],
         capture_output=True,
         text=True,
@@ -397,11 +417,16 @@ try:
     ]
 
     if mypy_result.returncode != 0 or error_lines:
+        # Fall back to raw output when mypy fails before producing normal
+        # "file:line: error: ..." diagnostics (e.g. a broken launcher, a
+        # crash, or a config problem) — otherwise the real cause is silently
+        # swallowed and this check just prints "FAIL" with no detail.
+        detail_lines = error_lines if error_lines else output.split("\n")
         check(
             8,
             "mypy on src/schematic/ src/layout/ src/nir/ src/synthesis/",
             False,
-            "\n  ".join([""] + error_lines[:25]),
+            "\n  ".join([""] + detail_lines[:25]),
         )
     else:
         check(8, "mypy on src/schematic/ src/layout/ src/nir/ src/synthesis/", True)
@@ -409,6 +434,125 @@ except Exception as e:
     check(
         8,
         "mypy on src/schematic/ src/layout/ src/nir/ src/synthesis/",
+        False,
+        f"{type(e).__name__}: {e}",
+    )
+
+# CHECK 9 — run_search_controller returns ASHAResult for a minimal BOMLadder
+# (Idea 1 — see plan.md, documents/decisions/Search_controller_decision.md)
+print("\n" + "-" * 60)
+try:
+    from src.bom.candidates import BOMLadder
+    from src.schemas.intent import DesignMethodology, IntentDict, ValidatedBOM
+    from src.schemas.kg import DesignSubgraph
+    from src.schematic.search_controller import ASHAResult, run_search_controller
+
+    intent = IntentDict(
+        goal="test",
+        application="test",
+        design_methodology=DesignMethodology.STANDARD_SMD,
+        board_type="standard_SMD",
+        raw_prompt="test",
+    )
+    bom = ValidatedBOM(
+        design_id="search-controller-gate-test",
+        intent=intent,
+        components=[],
+        total_confidence=0.0,
+        review_required=False,
+        created_at="2026-01-01T00:00:00Z",
+    )
+    subgraph = DesignSubgraph(
+        component_types=[],
+        component_instances=[],
+        design_rules=[],
+        placement_rules=[],
+        routing_hints=[],
+        design_methodology="standard_SMD",
+        path_confidences={},
+        query_depth=0,
+    )
+    ladder = BOMLadder(
+        candidates=[bom],
+        primary_varied_component=None,
+        n_candidates=1,
+        ladder_id="gate-test-ladder",
+        generation_metadata={},
+    )
+
+    result = run_search_controller(ladder, [], subgraph, config)
+    if isinstance(result, ASHAResult):
+        check(9, "run_search_controller returns ASHAResult for a minimal BOMLadder", True)
+    else:
+        check(
+            9,
+            "run_search_controller returns ASHAResult for a minimal BOMLadder",
+            False,
+            f"expected ASHAResult, got {type(result).__name__}",
+        )
+except Exception as e:
+    check(
+        9,
+        "run_search_controller returns ASHAResult for a minimal BOMLadder",
+        False,
+        f"{type(e).__name__}: {e}",
+    )
+
+# CHECK 10 — run_self_improving_synthesis returns SelfImprovementResult, never raises
+# (Idea 2 — propose_netlist_llm is mocked here: this gate runs without GPU/model
+# weights, matching the rest of this gate script. See
+# tests/unit/schematic/test_self_improvement_loop.py for full coverage.)
+print("\n" + "-" * 60)
+try:
+    from unittest.mock import MagicMock, patch
+
+    from src.schemas.intent import DesignMethodology, IntentDict, ValidatedBOM
+    from src.schematic.self_improvement_loop import (
+        SelfImprovementResult,
+        run_self_improving_synthesis,
+    )
+
+    intent = IntentDict(
+        goal="test",
+        application="test",
+        design_methodology=DesignMethodology.STANDARD_SMD,
+        board_type="standard_SMD",
+        raw_prompt="test",
+    )
+    bom = ValidatedBOM(
+        design_id="self-improvement-gate-test",
+        intent=intent,
+        components=[],
+        total_confidence=0.0,
+        review_required=False,
+        created_at="2026-01-01T00:00:00Z",
+    )
+    fake_proposal = MagicMock()
+    fake_proposal.netlist = []
+
+    with patch(
+        "src.schematic.self_improvement_loop.propose_netlist_llm",
+        return_value=fake_proposal,
+    ):
+        result = run_self_improving_synthesis(bom, [], {}, config, max_rounds=1)
+
+    if isinstance(result, SelfImprovementResult):
+        check(
+            10,
+            "run_self_improving_synthesis returns SelfImprovementResult (never raises)",
+            True,
+        )
+    else:
+        check(
+            10,
+            "run_self_improving_synthesis returns SelfImprovementResult (never raises)",
+            False,
+            f"expected SelfImprovementResult, got {type(result).__name__}",
+        )
+except Exception as e:
+    check(
+        10,
+        "run_self_improving_synthesis returns SelfImprovementResult (never raises)",
         False,
         f"{type(e).__name__}: {e}",
     )

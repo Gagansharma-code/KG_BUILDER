@@ -18,6 +18,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.knowledge_graph.backends._schemas import KnowledgeGraphConfig
 from src.parsing.backends._schemas import ParsingConfig
+from src.schemas.search_controller import SearchControllerConfig, SelfImprovementConfig
 
 
 class Config(BaseSettings):
@@ -59,6 +60,7 @@ class Config(BaseSettings):
             "qwen2_vl_7b": Path("models/Qwen2-VL-7B-Instruct"),
             "yolov8n_doclaynet": Path("models/yolov8_doclaynets.pt"),
             "locateanything_3b": Path("models/locateanything-3b"),
+            "weak_netlist_proposer": Path("models/Qwen2.5-1.5B-Instruct"),
         },
         description="Mapping of model identifiers to filesystem paths",
     )
@@ -140,6 +142,16 @@ class Config(BaseSettings):
     knowledge_graph: KnowledgeGraphConfig = Field(
         default_factory=KnowledgeGraphConfig,
         description="Pluggable knowledge graph storage backend selection",
+    )
+
+    search_controller: SearchControllerConfig = Field(
+        default_factory=SearchControllerConfig,
+        description="Idea 1 — ASHA search controller settings (opt-in)",
+    )
+
+    self_improvement: SelfImprovementConfig = Field(
+        default_factory=SelfImprovementConfig,
+        description="Idea 2 — weak-model self-improvement loop settings (opt-in)",
     )
 
     @field_validator("model_paths", mode="before")
@@ -246,6 +258,8 @@ class Config(BaseSettings):
             "kicad_mcp_url": "kicad_mcp_url",
             "parsing": "parsing",
             "knowledge_graph": "knowledge_graph",
+            "search_controller": "search_controller",
+            "self_improvement": "self_improvement",
         }
 
         for yaml_key, field_name in field_mapping.items():

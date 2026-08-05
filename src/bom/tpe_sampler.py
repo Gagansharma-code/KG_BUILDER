@@ -8,11 +8,15 @@ This enables generate_bom_candidates() to produce meaningful variant BOMs
 once sufficient history exists (MIN_OBSERVATIONS_FOR_PREDICTION outcomes
 per component_type).
 
-STATUS (2026-07-06): implemented and gate-tested; not wired into
-run_intent_pipeline() or run_e2e() — see src/bom/candidates.py module
-docstring for the ASHA-controller dependency this awaits.
+STATUS (2026-08): implemented, gate-tested, and wired into
+src/orchestrator.py `_run_post_bom_stages()` when
+config.search_controller.enabled is True — the orchestrator constructs a
+TPEBOMSampler from config.search_controller.sampler_path, optionally
+enriches the BOM ladder, passes the sampler into run_search_controller()
+(which calls record_asha_outcome), then persists via sampler.save().
 
-Storage: data/bom_tpe_history.json (gitignored runtime file).
+Storage: data/bom_tpe_history.json (gitignored runtime file) by default;
+overridable via SearchControllerConfig.sampler_path.
 No network calls. No Optuna dependency. Pure Python with JSON persistence.
 """
 
@@ -141,6 +145,12 @@ class TPEBOMSampler:
             logger.warning(
                 "TPEBOMSampler: failed to save history: %s", exc
             )
+
+    def save(self) -> None:
+        """Public persist hook for callers (e.g. orchestrator) that want an
+        explicit flush after a run. Never raises — delegates to _save().
+        """
+        self._save()
 
     def record_outcome(
         self,

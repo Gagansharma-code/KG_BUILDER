@@ -49,7 +49,13 @@ line-length = 88
 target-version = ["py310"]
 
 [tool.mypy]
-python_version = "3.10"
+# Bumped from 3.10: newer NumPy ships .pyi stubs using PEP 695 `type`
+# statements (Python 3.12+ syntax). With python_version=3.10, mypy's parser
+# rejects those stubs outright before it can check anything — a hard parse
+# failure, not a real type error in this project's code. This only changes
+# what syntax mypy's parser accepts; [project] requires-python (>=3.10) is
+# unchanged and still governs actual runtime compatibility.
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true

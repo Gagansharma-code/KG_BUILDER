@@ -37,6 +37,7 @@ from src.schematic.structural_verifier import verify_schematic
 if TYPE_CHECKING:
     from src.schemas.datasheet import ComponentDatasheet
     from src.schemas.intent import ValidatedBOM
+    from src.schematic.structural_verifier import VerificationResult
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ class BeamSearchResult:
 
 def _expand_beam_state(
     state: BeamState,
-    verification,
+    verification: "VerificationResult",
     rng: random.Random,
     max_actions: int = BEAM_MAX_ACTIONS,
 ) -> list[tuple[list[NetlistEntry], str]]:
@@ -122,9 +123,9 @@ def _expand_beam_state(
 
 def run_beam_search(
     netlist: list[NetlistEntry],
-    ref_map: dict,
-    bom,
-    verification,
+    ref_map: dict[str, tuple[str, Optional["ComponentDatasheet"]]],
+    bom: "ValidatedBOM",
+    verification: "VerificationResult",
     expected_topologies: Optional[list[str]] = None,
     beam_width: int = BEAM_WIDTH,
     max_depth: int = BEAM_MAX_DEPTH,

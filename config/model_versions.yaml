@@ -36,6 +36,20 @@ models:
     similarity_threshold: 0.70
     validated_on: null         # fill after first eval run
 
+  weak_netlist_proposer:
+    name: "Qwen/Qwen2.5-1.5B-Instruct"
+    revision: "main"          # pin to a commit hash before production
+    quantization: null
+    role: "Idea 2 — weak-model netlist proposal for the self-improvement loop"
+    validated_prompt_version: "v1.0"
+    note: >
+      Deliberately smaller than intent_parser (Qwen2.5-7B). The self-improvement
+      loop's whole point is showing this weaker model reach a comparable score
+      through verifier-scored retries, not fine-tuning. Same model family as
+      intent_parser to keep the ROCm/quantization story simple later — one
+      family, two sizes. See src/schematic/llm_netlist_proposer.py and
+      src/schematic/self_improvement_loop.py.
+
 # Loading strategy (sequential on single 24GB GPU):
 # Load intent_parser → run Stage 1+2 → unload → load embedding → run Layer 3
 # multimodal_parser and layout_detector loaded only during P1 ingestion pipeline

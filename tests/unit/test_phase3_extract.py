@@ -319,6 +319,61 @@ class TestExtractor:
         with pytest.raises(RuntimeError):
             wrapper._load_model()
 
+    def _wrapper_with_fake_model(self, tmp_path: Path) -> tuple[InstructorWrapper, MagicMock]:
+        """Build an InstructorWrapper with tokenizer/model stubs already loaded."""
+        wrapper = InstructorWrapper(tmp_path / "model", device="cpu")
+        tokenizer = MagicMock()
+        tokenizer.apply_chat_template.return_value = "PROMPT"
+        tokenizer.return_value = {"input_ids": MagicMock(shape=(1, 4))}
+        tokenizer.eos_token_id = 0
+        tokenizer.decode.return_value = '{"ok": true}'
+
+        model = MagicMock()
+        # generate returns a tensor-like with [0] indexing; fake a short sequence
+        output = MagicMock()
+        output.__getitem__ = MagicMock(return_value=list(range(6)))
+        model.generate.return_value = [output]
+
+        wrapper._tokenizer = tokenizer
+        wrapper._model = model
+        return wrapper, model
+
+    def test_generate_greedy_when_temperature_zero(self, tmp_path) -> None:
+        wrapper, model = self._wrapper_with_fake_model(tmp_path)
+        wrapper._generate("sys", "user", max_new_tokens=32, temperature=0.0)
+        _, kwargs = model.generate.call_args
+        assert kwargs["do_sample"] is False
+        assert "temperature" not in kwargs
+
+    def test_generate_samples_when_temperature_positive(self, tmp_path) -> None:
+        wrapper, model = self._wrapper_with_fake_model(tmp_path)
+        wrapper._generate("sys", "user", max_new_tokens=32, temperature=0.9)
+        _, kwargs = model.generate.call_args
+        assert kwargs["do_sample"] is True
+        assert kwargs["temperature"] == 0.9
+
+    def test_extract_forwards_temperature_to_generate(self, tmp_path) -> None:
+        from pydantic import BaseModel
+
+        class _Tiny(BaseModel):
+            value: str
+
+        wrapper = InstructorWrapper(tmp_path / "model", device="cpu")
+        wrapper._load_model = MagicMock()  # type: ignore[method-assign]
+        wrapper._generate = MagicMock(return_value='{"value": "ok"}')  # type: ignore[method-assign]
+
+        result = wrapper.extract(
+            response_model=_Tiny,
+            system_prompt="sys",
+            user_content="user",
+            temperature=0.7,
+            max_retries=0,
+        )
+        assert result is not None
+        assert result.value == "ok"
+        _, kwargs = wrapper._generate.call_args
+        assert kwargs["temperature"] == 0.7
+
     def test_extract_from_grid_returns_extraction_result(self, mock_config, sample_grid) -> None:
         """Test extract_from_grid returns ExtractionResult."""
         result = extract_from_grid(sample_grid, [], mock_config)

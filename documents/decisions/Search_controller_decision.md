@@ -331,8 +331,42 @@ Stage 6+: NIR → Serializer → KiCad / tscircuit output
 | `src/bom/candidates.py` | `BOMLadder`, `generate_bom_candidates()` |
 | `src/bom/tpe_sampler.py` | `enrich_bom_candidates()`, `record_asha_outcome()` |
 | `data/bom_tpe_history.json` | Cross-design component preference history |
-| `src/schematic/search_controller.py` | ASHA controller |
+| `src/schematic/search_controller.py` | ASHA controller — **implemented**, see status note below |
 | `src/schematic/sa_polisher.py` | SA polisher, `SMove`, `_metropolis_accept()` |
 | `src/schematic/beam_search_escalation.py` | `run_beam_search()`, `BeamState` |
 | `src/schematic/structural_verifier.py` | `verify_schematic()`, 5-layer scorer |
+| `src/schematic/llm_netlist_proposer.py` | Weak-model netlist proposal (Idea 2) |
+| `src/schematic/self_improvement_loop.py` | Weak-model self-improvement loop (Idea 2) |
 | `docs/MCTS_DECISION.md` | Full 8-point record of why MCTS was rejected |
+
+---
+
+## Status update — `search_controller.py` implemented
+
+Earlier revisions of this document (and `PROJECT_CONTEXT.md` §9,
+`CURRENT_REPO_MAP.md` §10 gap #1) stated that `src/schematic/
+search_controller.py` did not exist and that `ASHAResult` only appeared in
+comments. That gap is now closed: `run_search_controller()` and `ASHAResult`
+are implemented, evaluating every BOM candidate in a `BOMLadder`, handing
+the winner to `polish_schematic()` or `run_beam_search()` per the thresholds
+documented above, and recording the outcome via `record_asha_outcome()`.
+
+One correction to Part 4's description: because `synthesize_schematic()` is
+deterministic (rule-based net assignment, not an LLM call), the first
+implementation evaluates each BOM candidate exactly once rather than
+generating "2 netlist variants using the LLM at different temperatures" —
+there is no LLM in that path to sample from. The variance ASHA acts on
+comes from which BOM candidate is chosen (Layer 0), not from resampling a
+deterministic function. `src/schematic/llm_netlist_proposer.py` and
+`src/schematic/self_improvement_loop.py` introduce the first LLM into the
+schematic-synthesis path — a weak model + verifier-scored retry loop — which
+is where multi-round, LLM-driven ASHA becomes a meaningful next step.
+
+See `plan.md` (repo root) for the implementation plan and PR breakdown, and
+`tests/unit/schematic/test_search_controller.py`,
+`tests/unit/schematic/test_llm_netlist_proposer.py`,
+`tests/unit/schematic/test_self_improvement_loop.py` for test coverage.
+Not yet done: wiring `run_search_controller()` into `run_intent_pipeline()`
+or `run_e2e()` — it is deliberately not called from either yet, so no
+existing pipeline behavior changes until a caller opts in via
+`config.search_controller.enabled`.

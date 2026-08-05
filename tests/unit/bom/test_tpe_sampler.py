@@ -158,6 +158,48 @@ def test_record_outcome_persists_to_disk(tmp_path):
     sampler2 = TPEBOMSampler(history_path=path)
     assert sampler2.total_outcomes == 1
 
+
+def test_save_load_round_trip_preserves_outcomes(tmp_path):
+    """Explicit public save() → new TPEBOMSampler(_load) round-trip."""
+    path = tmp_path / "round_trip.json"
+    sampler = TPEBOMSampler(history_path=path)
+    sampler.record_outcome(_make_bom(design_id="D-rt-1"), 0.91)
+    sampler.record_outcome(
+        _make_bom(
+            design_id="D-rt-2",
+            components=[_make_bom_entry(specific_part="ALT-PART")],
+        ),
+        0.77,
+    )
+    sampler.save()
+
+    reloaded = TPEBOMSampler(history_path=path)
+    assert reloaded.total_outcomes == 2
+    assert {o.design_id for o in reloaded._history} == {"D-rt-1", "D-rt-2"}
+    assert {o.specific_part for o in reloaded._history} == {
+        "TPS7A20DRVR", "ALT-PART",
+    }
+    scores = {o.design_id: o.erc_score for o in reloaded._history}
+    assert scores["D-rt-1"] == pytest.approx(0.91)
+    assert scores["D-rt-2"] == pytest.approx(0.77)
+
+
+def test_save_never_raises_on_unwritable_path(tmp_path):
+    """save() must not break the design pipeline on I/O failure."""
+    bad_parent = tmp_path / "not_a_dir"
+    bad_parent.write_text("blocker", encoding="utf-8")
+    sampler = TPEBOMSampler(history_path=bad_parent / "nested" / "h.json")
+    sampler._history.append(
+        BOMOutcome(
+            design_id="D1",
+            component_type="ldo_regulator",
+            specific_part="X",
+            erc_score=0.5,
+        )
+    )
+    sampler.save()  # must not raise
+
+
 def test_record_outcome_clamps_erc_score(tmp_path):
     sampler = TPEBOMSampler(history_path=tmp_path / "h.json")
     bom = _make_bom()

@@ -11,6 +11,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from src.bom import generate_bom_candidates
+from src.bom.tpe_sampler import TPEBOMSampler
 from src.config import Config
 from src.datasheet.pipeline import DatasheetPipelineError, parse_datasheet
 from src.intent.pipeline import run_intent_pipeline
@@ -27,8 +29,11 @@ from src.schemas.datasheet import ComponentDatasheet, ExtractionMethod
 from src.schemas.intent import DesignMethodology, ImprovedIntentDict, ValidatedBOM
 from src.schemas.kg import DesignSubgraph
 from src.schemas.nir import NIR, ReviewFlag
-from src.schematic import synthesize_schematic
+from src.schematic import _package_schematic_graph, synthesize_schematic
+from src.schematic._ref_mapper import build_ref_map
 from src.schematic._schemas import SchematicGraph
+from src.schematic.search_controller import run_search_controller
+from src.schematic.self_improvement_loop import run_self_improving_synthesis
 from src.synthesis.pipeline import _failure_nir
 
 logger = logging.getLogger(__name__)
@@ -357,7 +362,100 @@ def _run_post_bom_stages(
         datasheets = normalize_pins(raw_datasheets, config)
 
         logger.info("Step 5: running synthesis pipeline")
-        schematic = synthesize_schematic(validated_bom, datasheets, subgraph, config)
+        if config.search_controller.enabled:
+            if config.self_improvement.enabled:
+                logger.warning(
+                    "Both search_controller and self_improvement are enabled; "
+                    "search_controller takes priority. Deep composition "
+                    "(LLM proposals inside the ASHA loop per BOM candidate) "
+                    "is deliberately deferred — narrow handoff "
+                    "(self-improvement → beam after SA) lives in "
+                    "self_improvement_loop.py only."
+                )
+            logger.info(
+                "search_controller enabled: generating BOM ladder "
+                "(max_candidates=%d)",
+                config.search_controller.max_bom_candidates,
+            )
+            ladder = generate_bom_candidates(
+                subgraph,
+                intent,
+                config,
+                max_candidates=config.search_controller.max_bom_candidates,
+            )
+            sampler: Optional[TPEBOMSampler] = None
+            try:
+                sampler = TPEBOMSampler(
+                    history_path=Path(config.search_controller.sampler_path),
+                )
+                ladder = sampler.enrich_bom_candidates(ladder)
+            except Exception as exc:
+                logger.warning(
+                    "TPEBOMSampler load/enrich failed (continuing without "
+                    "sampler): %s",
+                    exc,
+                )
+                sampler = None
+
+            asha_result = run_search_controller(
+                ladder,
+                datasheets,
+                subgraph,
+                config,
+                sampler=sampler,
+                human_review_threshold=config.search_controller.human_review_threshold,
+            )
+            if sampler is not None:
+                try:
+                    sampler.save()
+                except Exception as exc:
+                    logger.warning(
+                        "TPEBOMSampler.save failed after search_controller "
+                        "(design pipeline continues): %s",
+                        exc,
+                    )
+            # The ASHA winner may be a different BOM candidate than the one
+            # run_intent_pipeline() originally validated (a swapped-part
+            # variant with its own design_id) — it becomes authoritative for
+            # every stage from here on (layout, NIR, output, review queue).
+            validated_bom = asha_result.winner_bom
+            winner_ref_map = build_ref_map(validated_bom, datasheets)
+            schematic = _package_schematic_graph(
+                validated_bom, asha_result.final_netlist, winner_ref_map
+            )
+            logger.info(
+                "search_controller winner=%s stage=%s score=%.4f review=%s",
+                validated_bom.design_id,
+                asha_result.stage_used,
+                asha_result.final_score,
+                asha_result.routed_to_human_review,
+            )
+
+        elif config.self_improvement.enabled:
+            logger.info("self_improvement enabled: running weak-model loop")
+            si_ref_map = build_ref_map(validated_bom, datasheets)
+            si_result = run_self_improving_synthesis(
+                validated_bom,
+                datasheets,
+                si_ref_map,
+                config,
+                max_rounds=config.self_improvement.max_rounds,
+                score_threshold=config.self_improvement.score_threshold,
+                temperature_schedule=config.self_improvement.temperature_schedule,
+            )
+            schematic = _package_schematic_graph(
+                validated_bom, si_result.best_netlist, si_ref_map
+            )
+            logger.info(
+                "self_improvement: weak_model_alone=%.4f final=%.4f converged=%s",
+                si_result.weak_model_alone_score,
+                si_result.final_score,
+                si_result.converged,
+            )
+
+        else:
+            schematic = synthesize_schematic(validated_bom, datasheets, subgraph, config)
+
         if _netlist_review_required(schematic):
             logger.warning(
                 "Netlist review required for design %s — halting before layout",
